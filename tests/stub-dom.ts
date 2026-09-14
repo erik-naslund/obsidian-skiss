@@ -35,31 +35,26 @@ export class StubElement {
   lines(): string[] {
     return this.children.map((child) => child.textContent);
   }
-
-  /** This element and everything below it, depth first. */
-  selfAndDescendants(): StubElement[] {
-    return [this, ...this.children.flatMap((child) => child.selfAndDescendants())];
-  }
 }
 
-/** What the double's `DOMParser` hands back: the two members `render` reads. */
+/** What the double's `DOMParser` hands back: the one path `render` reads. */
 export class StubDocument {
-  constructor(readonly documentElement: StubElement) {}
+  readonly body: { firstElementChild: StubElement | null };
 
-  getElementsByTagName(tagName: string): StubElement[] {
-    return this.documentElement.selfAndDescendants().filter((el) => el.tagName === tagName);
+  constructor(firstElementChild: StubElement | null) {
+    this.body = { firstElementChild };
   }
 }
 
 /**
  * `DOMParser` is a browser global; in a test run there is none. This double
- * reads the root tag name, which is all `render` looks at, and reports the
- * `parsererror` document a browser produces for source it cannot parse.
+ * reads the first tag name, which is all `render` looks at, and hands back an
+ * empty body for source with no tag, as the HTML parser does for plain text.
  */
 export class StubDOMParser {
   parseFromString(source: string, _type: string): StubDocument {
     const rootTag = /^\s*<([a-zA-Z][\w.:-]*)/.exec(source)?.[1];
-    return new StubDocument(new StubElement(rootTag ?? 'parsererror'));
+    return new StubDocument(rootTag === undefined ? null : new StubElement(rootTag));
   }
 }
 

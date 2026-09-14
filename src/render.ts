@@ -53,16 +53,19 @@ export async function render(source: string, el: HTMLElement): Promise<void> {
 
 /**
  * Obsidian's guidelines rule out assigning markup as a string, so the SVG
- * Mermaid returns reaches the container as parsed nodes. `DOMParser` reports
- * source it could not parse with a `parsererror` element rather than by
- * throwing, and a diagram that will not parse is a failed diagram like any other.
+ * Mermaid returns reaches the container as parsed nodes. It is parsed as HTML,
+ * which is the parser `innerHTML` used: Mermaid serialises its SVG from an HTML
+ * document, so it may carry HTML entities and unclosed tags that a strict XML
+ * parse would reject. The HTML parser never throws; a document whose first
+ * element is not an `<svg>` is a failed diagram like any other.
  */
 function parseSvg(svg: string): Element {
-  const parsed = new DOMParser().parseFromString(svg, 'image/svg+xml');
-  if (parsed.getElementsByTagName('parsererror').length > 0) {
+  const parsed = new DOMParser().parseFromString(svg, 'text/html');
+  const root = parsed.body.firstElementChild;
+  if (root === null || root.tagName.toLowerCase() !== 'svg') {
     throw new Error(SVG_UNPARSEABLE);
   }
-  return parsed.documentElement;
+  return root;
 }
 
 function appendDiv(parent: HTMLElement, className?: string): HTMLElement {
