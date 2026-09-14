@@ -18,9 +18,12 @@ export default class SkissPlugin extends Plugin {
 
     this.addSettingTab(new SkissSettingTab(this.app, this));
 
+    // Obsidian prefixes the plugin name in the palette, so the name carries
+    // none: it reads "Skiss: Export to LinkML" either way.
     this.addCommand({
-      id: 'skiss-export-linkml',
-      name: 'Skiss: Export to LinkML',
+      // No plugin id in the command id either: Obsidian prefixes `skiss:` itself.
+      id: 'export-linkml',
+      name: 'Export to LinkML',
       checkCallback: (checking: boolean): boolean => {
         const file = this.app.workspace.getActiveFile();
         if (file === null || file.extension !== MARKDOWN) {

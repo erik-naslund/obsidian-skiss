@@ -145,8 +145,9 @@ describe('the Export to LinkML command', () => {
     const { command } = await load();
 
     expect(commands).toHaveLength(1);
-    expect(command.id).toBe('skiss-export-linkml');
-    expect(command.name).toBe('Skiss: Export to LinkML');
+    expect(command.id).toBe('export-linkml');
+    // The palette prefixes the plugin name itself; carrying it here would double it.
+    expect(command.name).toBe('Export to LinkML');
   });
 
   it.each([
