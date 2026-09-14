@@ -8,6 +8,7 @@ import {
   resolve,
 } from '@eriknaslund/skiss';
 import { loadMermaid } from 'obsidian';
+import type { SkissSettings } from './settings';
 
 /** `loadMermaid()` is untyped; this is the one call the plugin makes into it. */
 interface Mermaid {
@@ -33,10 +34,15 @@ let blocksRendered = 0;
 
 /**
  * Compiles one `skiss` block and fills `el` with its diagram, its diagnostics,
- * its open questions and its comments, in that order. Whatever the source, it
- * renders something and throws nothing.
+ * its open questions and its comments, in that order, leaving out what
+ * `settings` hides. Whatever the source, it renders something and throws
+ * nothing.
  */
-export async function render(source: string, el: HTMLElement): Promise<void> {
+export async function render(
+  source: string,
+  el: HTMLElement,
+  settings: SkissSettings,
+): Promise<void> {
   const { output, diagnostics } = compile(source, { target: 'mermaid' });
   // `compile` hands back text, not a document, so the doubts and the
   // descriptions are read off a second pass. The diagram keeps coming from
@@ -45,14 +51,14 @@ export async function render(source: string, el: HTMLElement): Promise<void> {
 
   if (output.trim() === EMPTY_DIAGRAM) {
     appendDiv(el, 'skiss-placeholder').textContent = PLACEHOLDER;
-    appendBelowDiagram(el, diagnostics, doc);
+    appendBelowDiagram(el, diagnostics, doc, settings);
     return;
   }
 
   // Everything below the diagram is appended before Mermaid is awaited, so it
   // settles under the diagram instead of sitting above it until it is drawn.
   const diagramEl = appendDiv(el, 'skiss-diagram');
-  appendBelowDiagram(el, diagnostics, doc);
+  appendBelowDiagram(el, diagnostics, doc, settings);
   await draw(diagramEl, output);
 }
 
@@ -60,20 +66,27 @@ function appendBelowDiagram(
   el: HTMLElement,
   diagnostics: readonly Diagnostic[],
   doc: Document,
+  settings: SkissSettings,
 ): void {
-  appendDiagnostics(el, diagnostics);
+  // An error is never hidden, so hiding the warnings leaves the errors behind
+  // rather than dropping the list.
+  appendDiagnostics(el, settings.showWarnings ? diagnostics : diagnostics.filter(isError));
   appendList(
     el,
     'skiss-questions',
     QUESTIONS_HEADING,
-    label(doc, (node) => node.note),
+    settings.showQuestions ? label(doc, (node) => node.note) : [],
   );
   appendList(
     el,
     'skiss-comments',
     COMMENTS_HEADING,
-    label(doc, (node) => node.description),
+    settings.showComments ? label(doc, (node) => node.description) : [],
   );
+}
+
+function isError(diagnostic: Diagnostic): boolean {
+  return diagnostic.severity === 'error';
 }
 
 /**
