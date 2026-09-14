@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-09-14
+
+Ready for the community list: the export commands the first vault test asked
+for, and the plugin guideline pass.
+
 ### Added
 
 - **Three more export commands.** Beside *Export LinkML to new file*, the
@@ -30,6 +35,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **The README says diagnostics are listed below the diagram**, which is where
   they have always been rendered.
+
+### Dependencies
+
+- `@eriknaslund/skiss` 0.3.0.
 
 ## [0.1.0] - 2026-09-14
 
@@ -63,5 +72,6 @@ shape.
 - **Installable with [BRAT](https://github.com/TfTHacker/obsidian42-brat)** from
   `erik-naslund/obsidian-skiss`. Not in the community plugin list yet.
 
-[Unreleased]: https://github.com/erik-naslund/obsidian-skiss/compare/0.1.0...HEAD
+[Unreleased]: https://github.com/erik-naslund/obsidian-skiss/compare/0.1.1...HEAD
+[0.1.1]: https://github.com/erik-naslund/obsidian-skiss/releases/tag/0.1.1
 [0.1.0]: https://github.com/erik-naslund/obsidian-skiss/releases/tag/0.1.0
