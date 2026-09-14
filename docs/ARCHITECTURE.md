@@ -10,9 +10,9 @@ obsidian-skiss/
   versions.json          # plugin version -> minimum Obsidian version
   src/
     main.ts              # Plugin subclass: registers the processor and the command
-    render.ts            # skiss Document -> DOM (diagnostics list + Mermaid)
+    render.ts            # skiss Document -> DOM (Mermaid + diagnostics, questions, comments)
     export.ts            # the Export to LinkML command
-  styles.css             # the diagnostics list, nothing else
+  styles.css             # the lists below the diagram, nothing else
   esbuild.config.mjs     # bundles src/ into main.js
   docs/
 ```
@@ -24,7 +24,8 @@ obsidian-skiss/
 1. **`registerMarkdownCodeBlockProcessor('skiss', ...)`.** For each block: `parse`, `resolve`, `toMermaid` from the `skiss` package, then render.
 2. **Render the diagram first** by handing the Mermaid text to Obsidian's own Mermaid, obtained with `loadMermaid()`. The plugin bundles no copy of Mermaid ([ADR 0002](adr/0002-obsidian-bundled-mermaid.md)). A block with nothing to draw gets a placeholder in the diagram's place instead.
 3. **Render the diagnostics after it.** Errors and warnings from the document are listed below the diagram as plain text, one per line, worded for a reader of the note rather than for a compiler: `Line 5: class \`Validator\` is not declared` for a warning and `Error, line 3: A colon needs a type after it` for an error. No column, no diagnostic code. An empty block or a thrown exception is never the result.
-4. **One command, "Export to LinkML".** Finds the `skiss` blocks in the active note, compiles them with `toLinkML` and `serialize`, and writes `<note>.linkml.yaml` next to the note via the vault API. Diagnostics go to a notice.
+4. **Render the open questions and the comments after that.** The `?` doubts of the block are listed under an "Open questions" heading and the `#` descriptions under a "Comments" heading, each line prefixed with what carries it: `Character: is a droid a character` for a class, `Character.homeworld: which planet counts` for a field. Both lists come from the document `parse` and `resolve` return, never from the plugin reading the source; the Mermaid text keeps `notes` off, so the diagram is unchanged. A list with nothing in it is left out entirely.
+5. **One command, "Export to LinkML".** Finds the `skiss` blocks in the active note, compiles them with `toLinkML` and `serialize`, and writes `<note>.linkml.yaml` next to the note via the vault API. Diagnostics go to a notice.
 
 ## Edges
 
