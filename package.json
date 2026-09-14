@@ -1,0 +1,26 @@
+{
+  "name": "obsidian-skiss",
+  "private": true,
+  "version": "0.0.0",
+  "description": "An Obsidian plugin that renders Skiss code blocks as diagrams and exports them to LinkML.",
+  "main": "main.js",
+  "type": "module",
+  "packageManager": "pnpm@9.15.9",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "node esbuild.config.mjs production",
+    "lint": "biome check",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.13",
+    "@types/node": "^22.18.12",
+    "esbuild": "^0.28.2",
+    "obsidian": "latest",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.0"
+  }
+}

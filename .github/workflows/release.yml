@@ -1,0 +1,45 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # No version input: pnpm comes from the packageManager field in package.json.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # The safeguard: a tag that does not match the manifest never becomes a release.
+      - name: Check the tag matches manifest.json
+        run: |
+          manifest_version="$(jq -r .version manifest.json)"
+          if [ "$GITHUB_REF_NAME" != "$manifest_version" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match manifest.json version $manifest_version" >&2
+            exit 1
+          fi
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm verify
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --generate-notes \
+            main.js manifest.json styles.css
