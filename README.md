@@ -31,7 +31,13 @@ Nothing else. The language, the parser and the LinkML generator live in the [`sk
 
 ## Installing
 
-Not yet in the community plugin list. Until it is, install with [BRAT](https://github.com/TfTHacker/obsidian42-brat): add `erik-naslund/obsidian-skiss` as a beta plugin.
+Not yet in the community plugin list. Until it is, install with [BRAT](https://github.com/TfTHacker/obsidian42-brat), which installs a plugin straight from its GitHub release.
+
+1. **Settings → Community plugins → Browse**, find **BRAT** (*Obsidian42 - BRAT*), install it and enable it.
+2. **Settings → BRAT → "Add beta plugin"**, and enter `erik-naslund/obsidian-skiss`.
+3. **Settings → Community plugins**, enable **Skiss**.
+
+BRAT keeps it up to date with later releases. [docs/RELEASING.md](docs/RELEASING.md) has the same steps and how a release is made.
 
 ## Where to look
 
@@ -40,12 +46,14 @@ Not yet in the community plugin list. Until it is, install with [BRAT](https://g
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | How the plugin is built and where its edges are. |
 | [docs/adr/](docs/adr/) | Decisions. |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | What comes next. |
+| [docs/RELEASING.md](docs/RELEASING.md) | How a release is cut and installed. |
+| [CHANGELOG.md](CHANGELOG.md) | What changed, per release. |
 | [AGENTS.md](AGENTS.md) | How this repository is built. |
 | [Skiss](https://github.com/erik-naslund/skiss) | The language itself. |
 
 ## Status
 
-Pre-release. Nothing is implemented yet.
+`0.1.0`, the first release: blocks render, diagnostics, open questions and comments are listed below the diagram, and "Export to LinkML" writes a file next to the note. Install it with BRAT; it is not in the community plugin list yet. [CHANGELOG.md](CHANGELOG.md) has the detail.
 
 ## License
 
