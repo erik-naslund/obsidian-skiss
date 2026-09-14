@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@eriknaslund/skiss':
-        specifier: 0.2.1
-        version: 0.2.1
+        specifier: 0.3.0
+        version: 0.3.0
     devDependencies:
       '@biomejs/biome':
         specifier: ^2.5.13
@@ -92,8 +92,8 @@ packages:
   '@codemirror/view@6.38.6':
     resolution: {integrity: sha512-qiS0z1bKs5WOvHIAC0Cybmv4AJSkAXgX5aD6Mqd2epSLlVJsQl8NG23jCVouIgkh4All/mrbdsf2UOLFnJw0tw==}
 
-  '@eriknaslund/skiss@0.2.1':
-    resolution: {integrity: sha512-Hueio5clQMlX6ZwAKREPLyPK8+xnUeTVtwN0DuxRUaC8Dr61z5Y5amzlW9zfV+f4HKBk0cTHN7w+IviVmibdcA==}
+  '@eriknaslund/skiss@0.3.0':
+    resolution: {integrity: sha512-DTzDSb/cgzpTI9EsHEoiptpTXdy4iRzDlrnDKuCjj1Uen4Wb5kvUVDN98LR7Sn1w+NexjKHlz0P9LcDxPC1y7Q==}
     engines: {node: '>=20'}
     hasBin: true
 
@@ -726,7 +726,7 @@ snapshots:
       style-mod: 4.1.3
       w3c-keyname: 2.2.8
 
-  '@eriknaslund/skiss@0.2.1':
+  '@eriknaslund/skiss@0.3.0':
     dependencies:
       yaml: 2.9.1
 
