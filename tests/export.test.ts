@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   concatenateBlocks,
   exportToLinkML,
+  noteLineOf,
   outputPathFor,
   schemaNameFor,
   skissBlocks,
@@ -43,9 +44,38 @@ More prose.
 ${PLANET}\`\`\`
 `;
 
+/** Two blocks separated by prose; the warning in the second is what issue #12 is about. */
+const TWO_BLOCKS = `# The archive
+
+Some prose.
+
+\`\`\`skiss
+Character
+  id*
+\`\`\`
+
+More prose, long enough that the two line numberings cannot coincide.
+
+\`\`\`skiss
+Planet
+  ruler: Ruler
+\`\`\`
+`;
+
 /** A note holding one block, the shape most of the write tests need. */
 function noteWith(block: string): string {
   return `\`\`\`skiss\n${block}\`\`\`\n`;
+}
+
+/** The block bodies alone, for the tests that do not care where they sit. */
+function bodiesOf(text: string): string[] {
+  return skissBlocks(text).map((block) => block.body);
+}
+
+/** The source the command hands the compiler, for the tests that compile it again. */
+function sourceOf(bodies: string[]): string {
+  // `concatenateBlocks` reads the bodies only, so any line does here.
+  return concatenateBlocks(bodies.map((body, index) => ({ body, line: index + 1 })));
 }
 
 async function exportNote(vault: StubVault, path: string, text: string): Promise<void> {
@@ -58,13 +88,13 @@ beforeEach(() => {
 
 describe('skissBlocks', () => {
   it('finds every skiss block in order and leaves other fences alone', () => {
-    expect(skissBlocks(NOTE)).toEqual([CHARACTER.trimEnd(), PLANET.trimEnd()]);
+    expect(bodiesOf(NOTE)).toEqual([CHARACTER.trimEnd(), PLANET.trimEnd()]);
   });
 
   it('exports a block whose info string carries more than the language', () => {
     const note = '```skiss title="The archive"\nCharacter\n  id*\n```\n';
 
-    expect(skissBlocks(note)).toEqual(['Character\n  id*']);
+    expect(bodiesOf(note)).toEqual(['Character\n  id*']);
   });
 
   it('ignores a fence whose first word merely starts with skiss', () => {
@@ -72,27 +102,67 @@ describe('skissBlocks', () => {
   });
 
   it('reads a tilde fence', () => {
-    expect(skissBlocks('~~~skiss\nCharacter\n~~~\n')).toEqual(['Character']);
+    expect(bodiesOf('~~~skiss\nCharacter\n~~~\n')).toEqual(['Character']);
   });
 
   it('reads an indented fence and strips the fence indentation from the body', () => {
     const note = '- A list item:\n\n  ```skiss\n  Character\n    id*\n  ```\n';
 
-    expect(skissBlocks(note)).toEqual(['Character\n  id*']);
+    expect(bodiesOf(note)).toEqual(['Character\n  id*']);
   });
 
   it('runs an unterminated fence to the end of the note', () => {
-    expect(skissBlocks('```skiss\nCharacter\n  id*\n')).toEqual(['Character\n  id*\n']);
+    expect(bodiesOf('```skiss\nCharacter\n  id*\n')).toEqual(['Character\n  id*\n']);
   });
 
   it('finds nothing in a note without a skiss block', () => {
     expect(skissBlocks('# Title\n\nProse and `inline code`.\n')).toEqual([]);
   });
+
+  it('reports the note line each block body starts on', () => {
+    // Each body starts one line past its opening fence.
+    expect(skissBlocks(NOTE).map((block) => block.line)).toEqual([6, 19]);
+  });
+
+  it('counts the note lines of an indented block from the note, not the block', () => {
+    const note = '- A list item:\n\n  ```skiss\n  Character\n  ```\n';
+
+    expect(skissBlocks(note)).toEqual([{ body: 'Character', line: 4 }]);
+  });
+});
+
+describe('noteLineOf', () => {
+  const blocks = [
+    { body: 'Character\n  id*', line: 6 },
+    { body: 'Planet\n  id*', line: 18 },
+  ];
+
+  it.each([
+    [1, 6],
+    [2, 7],
+    [4, 18],
+    [5, 19],
+  ])('maps concatenated line %i to note line %i', (line, noteLine) => {
+    expect(noteLineOf(blocks, line)).toBe(noteLine);
+  });
+
+  it('puts the blank line between two blocks just past the first block', () => {
+    expect(noteLineOf(blocks, 3)).toBe(8);
+  });
+
+  it('leaves a line without a block alone', () => {
+    expect(noteLineOf([], 3)).toBe(3);
+  });
 });
 
 describe('the source handed to the compiler', () => {
   it('separates the blocks with a blank line', () => {
-    expect(concatenateBlocks(['Character', 'Planet'])).toBe('Character\n\nPlanet\n');
+    expect(
+      concatenateBlocks([
+        { body: 'Character', line: 2 },
+        { body: 'Planet', line: 8 },
+      ]),
+    ).toBe('Character\n\nPlanet\n');
   });
 
   it('compiles the blocks of a note as one schema', async () => {
@@ -100,7 +170,7 @@ describe('the source handed to the compiler', () => {
 
     await exportNote(vault, 'Sketches/My Notes.md', NOTE);
 
-    const expected = compile(concatenateBlocks([CHARACTER.trimEnd(), PLANET.trimEnd()]), {
+    const expected = compile(sourceOf([CHARACTER.trimEnd(), PLANET.trimEnd()]), {
       target: 'linkml',
       schemaName: 'My Notes',
     }).output;
@@ -162,15 +232,36 @@ describe('exportToLinkML', () => {
 
     await exportNote(vault, 'Note.md', noteWith(block));
 
-    const diagnostics = compile(concatenateBlocks([block.trimEnd()]), {
+    const diagnostics = compile(sourceOf([block.trimEnd()]), {
       target: 'linkml',
       schemaName: 'Note',
     }).diagnostics;
     expect(diagnostics.length).toBe(4);
     expect(notices[0]).toBe('Exported to Note.linkml.yaml');
+    // The only block's body starts on line 2 of the note, so every line shifts by one.
     expect(notices[1]).toBe(
-      ['4 diagnostics', ...diagnostics.slice(0, 3).map((d) => formatDiagnostic(d))].join('\n'),
+      [
+        '4 diagnostics',
+        ...diagnostics.slice(0, 3).map((d) => formatDiagnostic({ ...d, line: d.line + 1 })),
+      ].join('\n'),
     );
+  });
+
+  it('names the note line of a diagnostic in the second block, not the compiler line', async () => {
+    const vault = new StubVault();
+
+    await exportNote(vault, 'Note.md', TWO_BLOCKS);
+
+    const { diagnostics } = compile(sourceOf(['Character\n  id*', 'Planet\n  ruler: Ruler']), {
+      target: 'linkml',
+      schemaName: 'Note',
+    });
+    // `ruler: Ruler` is line 5 of the concatenated source and line 14 of the note.
+    expect(diagnostics.map((d) => d.line)).toEqual([5]);
+    expect(notices[1]).toBe(
+      ['1 diagnostic', ...diagnostics.map((d) => formatDiagnostic({ ...d, line: 14 }))].join('\n'),
+    );
+    expect(notices[1]).toContain('14:');
   });
 
   it('shows no diagnostics notice when the note is clean', async () => {

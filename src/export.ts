@@ -19,14 +19,21 @@ interface Fence {
   skiss: boolean;
 }
 
+/** A `skiss` block of a note, and where its body sits in that note. */
+export interface Block {
+  body: string;
+  /** The note's own line, 1-based, that the body's first line is on. */
+  line: number;
+}
+
 /**
- * The body of every fenced `skiss` block in `text`, in the order they appear.
- * A fence that is never closed runs to the end of the note, as Obsidian's own
- * renderer treats it.
+ * Every fenced `skiss` block in `text`, in the order they appear. A fence that
+ * is never closed runs to the end of the note, as Obsidian's own renderer
+ * treats it.
  */
-export function skissBlocks(text: string): string[] {
+export function skissBlocks(text: string): Block[] {
   const lines = text.split(/\r?\n/);
-  const blocks: string[] = [];
+  const blocks: Block[] = [];
 
   let index = 0;
   while (index < lines.length) {
@@ -36,6 +43,7 @@ export function skissBlocks(text: string): string[] {
       continue;
     }
 
+    const start = index;
     const body: string[] = [];
     while (index < lines.length && !closesFence(lines[index] ?? '', fence)) {
       body.push(dedent(lines[index] ?? '', fence.indent));
@@ -44,7 +52,7 @@ export function skissBlocks(text: string): string[] {
     index += 1;
 
     if (fence.skiss) {
-      blocks.push(body.join('\n'));
+      blocks.push({ body: body.join('\n'), line: start + 1 });
     }
   }
 
@@ -52,8 +60,27 @@ export function skissBlocks(text: string): string[] {
 }
 
 /** One source for the whole note: the blocks in order, separated by a blank line. */
-export function concatenateBlocks(blocks: string[]): string {
-  return `${blocks.join('\n\n')}\n`;
+export function concatenateBlocks(blocks: Block[]): string {
+  return `${blocks.map((block) => block.body).join('\n\n')}\n`;
+}
+
+/**
+ * The note line that line `line` of the concatenated source sits on. The
+ * compiler counts from the top of a source the user never sees, so a number
+ * straight from a diagnostic matches nothing in the note.
+ */
+export function noteLineOf(blocks: Block[], line: number): number {
+  let start = 1;
+  let noteLine = line;
+  for (const block of blocks) {
+    if (line < start) {
+      break;
+    }
+    noteLine = block.line + (line - start);
+    // The blank line `concatenateBlocks` puts between two blocks.
+    start += lineCountOf(block.body) + 1;
+  }
+  return noteLine;
 }
 
 /**
@@ -99,18 +126,24 @@ export async function exportToLinkML(vault: Vault, file: TFile): Promise<void> {
 
     new Notice(`Exported to ${path}`);
     if (diagnostics.length > 0) {
-      new Notice(diagnosticsMessage(diagnostics));
+      new Notice(diagnosticsMessage(blocks, diagnostics));
     }
   } catch (error) {
     new Notice(`Export failed: ${messageOf(error)}`);
   }
 }
 
-function diagnosticsMessage(diagnostics: Diagnostic[]): string {
+function diagnosticsMessage(blocks: Block[], diagnostics: Diagnostic[]): string {
   const count = diagnostics.length;
   const heading = `${count} diagnostic${count === 1 ? '' : 's'}`;
-  const shown = diagnostics.slice(0, DIAGNOSTICS_IN_NOTICE).map((d) => formatDiagnostic(d));
+  const shown = diagnostics
+    .slice(0, DIAGNOSTICS_IN_NOTICE)
+    .map((d) => formatDiagnostic({ ...d, line: noteLineOf(blocks, d.line) }));
   return [heading, ...shown].join('\n');
+}
+
+function lineCountOf(body: string): number {
+  return body.split('\n').length;
 }
 
 function openingFence(line: string): Fence | undefined {
