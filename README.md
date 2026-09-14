@@ -19,13 +19,13 @@ Planet @Catalog
 ```
 ````
 
-In Reading view, and in Live Preview when the cursor is outside the block, that renders as a class diagram. A half-typed line shows up as a small note above the diagram; the rest of the diagram still renders.
+In Reading view, and in Live Preview when the cursor is outside the block, that renders as a class diagram. A half-typed line shows up as a small note below the diagram; the rest of the diagram still renders.
 
 ## What it does
 
 - **Renders `skiss` code blocks** as class diagrams, using the Mermaid that ships with Obsidian.
-- **Shows diagnostics** above the diagram instead of failing: an unknown type, a class you referenced but have not written yet, a line it could not read.
-- **Exports to LinkML.** One command writes a `.linkml.yaml` next to the note.
+- **Shows diagnostics** below the diagram instead of failing: an unknown type, a class you referenced but have not written yet, a line it could not read.
+- **Exports to LinkML.** The command **Skiss: Export to LinkML** writes a `.linkml.yaml` next to the note.
 
 Nothing else. The language, the parser and the LinkML generator live in the [`skiss`](https://github.com/erik-naslund/skiss) package. This plugin is the thinnest possible layer over it.
 
@@ -43,13 +43,16 @@ BRAT keeps it up to date with later releases. [docs/RELEASING.md](docs/RELEASING
 
 | | |
 |---|---|
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | How the plugin is built and where its edges are. |
-| [docs/adr/](docs/adr/) | Decisions. |
+| [Skiss](https://github.com/erik-naslund/skiss) | The language itself: what a block can say. |
+| [CHANGELOG.md](CHANGELOG.md) | What changed, per release. |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | What comes next. |
 | [docs/RELEASING.md](docs/RELEASING.md) | How a release is cut and installed. |
-| [CHANGELOG.md](CHANGELOG.md) | What changed, per release. |
-| [AGENTS.md](AGENTS.md) | How this repository is built. |
-| [Skiss](https://github.com/erik-naslund/skiss) | The language itself. |
+
+## Developing
+
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) describes how the plugin is built and
+where its edges are, [docs/adr/](docs/adr/) holds the decisions behind it, and
+[AGENTS.md](AGENTS.md) is how work in this repository is done.
 
 ## Status
 
