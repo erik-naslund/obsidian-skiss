@@ -6,6 +6,28 @@
   white-space: pre-wrap;
 }
 
+/* The `?` doubts and the `#` descriptions, in the diagnostics' register. */
+.skiss-questions,
+.skiss-comments {
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  white-space: pre-wrap;
+  margin-top: var(--size-4-2);
+}
+
+/* A doubt is the point of the sketch, so it is the one thing not muted. */
+.skiss-questions {
+  color: var(--text-normal);
+}
+
+.skiss-list-heading {
+  font-weight: var(--font-semibold);
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
 .skiss-diagram {
   overflow-x: auto;
   text-align: center;

@@ -38,6 +38,17 @@ const WITH_TYPO = 'Character\n  name\n  homeworld: Ferson\n  x: frobnicate\n';
 // A warning on line 3 and an error on line 4, with enough left to draw a diagram.
 const WITH_WARNING_AND_ERROR = 'Character\n  name\n  homeworld: Ferson\n!!!\n';
 
+// A doubt and a description on a class and on a field, and a second class whose
+// field carries both at once, so source order is more than declaration order.
+const WITH_DOUBTS = `Character   # a person or droid in the archive   ? is a droid a character
+  name
+  homeworld: Planet                                 ? which planet counts, birth or home
+
+Planet   ? do moons get their own class
+  id*
+  climate   # as the archive records it   ? whose classification
+`;
+
 async function renderInto(source: string): Promise<StubElement> {
   const el = new StubElement();
   await render(source, asContainer(el));
@@ -92,6 +103,57 @@ describe('render', () => {
       'skiss-diagram',
       'skiss-diagnostics',
     ]);
+  });
+
+  it('lists the doubts and the descriptions under the diagnostics, in source order', async () => {
+    const el = await renderInto(WITH_DOUBTS);
+
+    expect(el.children.map((child) => child.className)).toEqual([
+      'skiss-diagram',
+      'skiss-diagnostics',
+      'skiss-questions',
+      'skiss-comments',
+    ]);
+    expect(el.find('skiss-questions')?.lines()).toEqual([
+      'Open questions',
+      'Character: is a droid a character',
+      'Character.homeworld: which planet counts, birth or home',
+      'Planet: do moons get their own class',
+      'Planet.climate: whose classification',
+    ]);
+    expect(el.find('skiss-comments')?.lines()).toEqual([
+      'Comments',
+      'Character: a person or droid in the archive',
+      'Planet.climate: as the archive records it',
+    ]);
+  });
+
+  it('leaves out a list the block has nothing for', async () => {
+    // Descriptions but no doubts: the questions container is not rendered at all.
+    const el = await renderInto(EXAMPLE);
+
+    expect(el.find('skiss-questions')).toBeUndefined();
+    expect(el.find('skiss-comments')?.lines()).toEqual([
+      'Comments',
+      'Character: a person or droid in the archive',
+      "CharacterPage: the community wiki's version",
+      'CharacterPage.summary: free text, written by editors',
+    ]);
+  });
+
+  it('renders neither container for a block with no doubts and no descriptions', async () => {
+    const el = await renderInto(WITH_TYPO);
+
+    expect(el.find('skiss-questions')).toBeUndefined();
+    expect(el.find('skiss-comments')).toBeUndefined();
+  });
+
+  it('leaves the diagram unchanged by the doubts it lists', async () => {
+    await renderInto(WITH_DOUBTS);
+
+    const [, text] = mermaidRender.mock.calls[0] ?? [];
+    expect(text).toBe(compile(WITH_DOUBTS, { target: 'mermaid' }).output);
+    expect(text).not.toContain('note');
   });
 
   it.each([

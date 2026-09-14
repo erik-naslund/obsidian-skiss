@@ -1,4 +1,12 @@
-import { compile, type Diagnostic } from '@eriknaslund/skiss';
+import {
+  type ClassNode,
+  compile,
+  type Diagnostic,
+  type Document,
+  type FieldNode,
+  parse,
+  resolve,
+} from '@eriknaslund/skiss';
 import { loadMermaid } from 'obsidian';
 
 /** `loadMermaid()` is untyped; this is the one call the plugin makes into it. */
@@ -16,28 +24,95 @@ const PLACEHOLDER = 'Nothing to draw yet';
 const RENDER_FAILED = 'Diagram could not be rendered';
 const SVG_UNPARSEABLE = 'Mermaid returned an SVG that could not be parsed';
 
+const QUESTIONS_HEADING = 'Open questions';
+const COMMENTS_HEADING = 'Comments';
+
 // Mermaid keys the SVG it renders by id and collides when two blocks in one
 // note share one, so every block gets its own.
 let blocksRendered = 0;
 
 /**
- * Compiles one `skiss` block and fills `el` with its diagram and its
- * diagnostics. Whatever the source, it renders something and throws nothing.
+ * Compiles one `skiss` block and fills `el` with its diagram, its diagnostics,
+ * its open questions and its comments, in that order. Whatever the source, it
+ * renders something and throws nothing.
  */
 export async function render(source: string, el: HTMLElement): Promise<void> {
   const { output, diagnostics } = compile(source, { target: 'mermaid' });
+  // `compile` hands back text, not a document, so the doubts and the
+  // descriptions are read off a second pass. The diagram keeps coming from
+  // `compile` with `notes` off, which is what leaves it unchanged.
+  const doc = resolve(parse(source));
 
   if (output.trim() === EMPTY_DIAGRAM) {
     appendDiv(el, 'skiss-placeholder').textContent = PLACEHOLDER;
-    appendDiagnostics(el, diagnostics);
+    appendBelowDiagram(el, diagnostics, doc);
     return;
   }
 
-  // Both containers are appended before Mermaid is awaited, so the diagnostics
-  // settle below the diagram instead of appearing above it until it is drawn.
+  // Everything below the diagram is appended before Mermaid is awaited, so it
+  // settles under the diagram instead of sitting above it until it is drawn.
   const diagramEl = appendDiv(el, 'skiss-diagram');
-  appendDiagnostics(el, diagnostics);
+  appendBelowDiagram(el, diagnostics, doc);
   await draw(diagramEl, output);
+}
+
+function appendBelowDiagram(
+  el: HTMLElement,
+  diagnostics: readonly Diagnostic[],
+  doc: Document,
+): void {
+  appendDiagnostics(el, diagnostics);
+  appendList(
+    el,
+    'skiss-questions',
+    QUESTIONS_HEADING,
+    label(doc, (node) => node.note),
+  );
+  appendList(
+    el,
+    'skiss-comments',
+    COMMENTS_HEADING,
+    label(doc, (node) => node.description),
+  );
+}
+
+/**
+ * The `?` doubts or the `#` descriptions of a document, in source order, each
+ * prefixed with what carries it. The prefix is separated by a colon, as a
+ * diagnostic separates its line number from its message.
+ */
+function label(doc: Document, pick: (node: ClassNode | FieldNode) => string | undefined): string[] {
+  const lines: string[] = [];
+  for (const classNode of doc.classes) {
+    const onClass = pick(classNode);
+    if (onClass !== undefined) {
+      lines.push(`${classNode.name.text}: ${onClass}`);
+    }
+    for (const field of classNode.fields) {
+      const onField = pick(field);
+      if (onField !== undefined) {
+        lines.push(`${classNode.name.text}.${field.name.text}: ${onField}`);
+      }
+    }
+  }
+  return lines;
+}
+
+/** A headed list, or nothing at all when the document carries no such line. */
+function appendList(
+  el: HTMLElement,
+  className: string,
+  heading: string,
+  lines: readonly string[],
+): void {
+  if (lines.length === 0) {
+    return;
+  }
+  const listEl = appendDiv(el, className);
+  appendDiv(listEl, 'skiss-list-heading').textContent = heading;
+  for (const line of lines) {
+    appendDiv(listEl).textContent = line;
+  }
 }
 
 function appendDiagnostics(el: HTMLElement, diagnostics: readonly Diagnostic[]): void {
