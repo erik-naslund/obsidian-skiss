@@ -1,1 +1,12 @@
-/* Styles for the diagnostics list. Empty until the block processor renders one. */
+/* The diagnostics the skiss compiler reports, listed above the diagram. */
+.skiss-diagnostics {
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  white-space: pre-wrap;
+}
+
+.skiss-diagram {
+  overflow-x: auto;
+  text-align: center;
+}
