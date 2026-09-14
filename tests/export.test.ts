@@ -2,9 +2,11 @@ import { compile, formatDiagnostic } from '@eriknaslund/skiss';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   concatenateBlocks,
-  exportToLinkML,
+  exportNote,
+  type Format,
   noteLineOf,
   outputPathFor,
+  type Sink,
   schemaNameFor,
   skissBlocks,
 } from '../src/export';
@@ -23,6 +25,11 @@ const { Notice, notices } = vi.hoisted(() => {
 });
 
 vi.mock('obsidian', () => ({ Notice }));
+
+// `navigator.clipboard` is a browser global inside Obsidian; a test run has to
+// supply one.
+const writeText = vi.fn((_text: string) => Promise.resolve());
+vi.stubGlobal('navigator', { clipboard: { writeText } });
 
 const CHARACTER = 'Character @Catalog\n  id*\n  name\n  homeworld: Planet\n';
 const PLANET = 'Planet @Catalog\n  id*\n  name\n';
@@ -78,12 +85,24 @@ function sourceOf(bodies: string[]): string {
   return concatenateBlocks(bodies.map((body, index) => ({ body, line: index + 1 })));
 }
 
-async function exportNote(vault: StubVault, path: string, text: string): Promise<void> {
-  await exportToLinkML(asVault(vault), asFile(vault.add(path, text)));
+async function runExport(
+  vault: StubVault,
+  path: string,
+  text: string,
+  format: Format = 'linkml',
+  sink: Sink = 'file',
+): Promise<void> {
+  await exportNote(asVault(vault), asFile(vault.add(path, text)), format, sink);
+}
+
+/** What the clipboard sink was handed, for the tests that check the text. */
+function copied(): string | undefined {
+  return writeText.mock.calls[0]?.[0];
 }
 
 beforeEach(() => {
   notices.length = 0;
+  writeText.mockClear();
 });
 
 describe('skissBlocks', () => {
@@ -168,7 +187,7 @@ describe('the source handed to the compiler', () => {
   it('compiles the blocks of a note as one schema', async () => {
     const vault = new StubVault();
 
-    await exportNote(vault, 'Sketches/My Notes.md', NOTE);
+    await runExport(vault, 'Sketches/My Notes.md', NOTE);
 
     const expected = compile(sourceOf([CHARACTER.trimEnd(), PLANET.trimEnd()]), {
       target: 'linkml',
@@ -183,20 +202,26 @@ describe('the source handed to the compiler', () => {
 
 describe('the schema name and the file name', () => {
   it.each([
-    ['Sketches/My Notes.md', 'My Notes', 'Sketches/My Notes.linkml.yaml'],
-    ['Note.md', 'Note', 'Note.linkml.yaml'],
-    ['A folder/Star Wars v2.md', 'Star Wars v2', 'A folder/Star Wars v2.linkml.yaml'],
-  ])('derives them from %s', (path, schemaName, outputPath) => {
+    ['Sketches/My Notes.md', 'My Notes', 'Sketches/My Notes.linkml.yaml', 'Sketches/My Notes.mmd'],
+    ['Note.md', 'Note', 'Note.linkml.yaml', 'Note.mmd'],
+    [
+      'A folder/Star Wars v2.md',
+      'Star Wars v2',
+      'A folder/Star Wars v2.linkml.yaml',
+      'A folder/Star Wars v2.mmd',
+    ],
+  ])('derives them from %s', (path, schemaName, linkmlPath, mermaidPath) => {
     expect(schemaNameFor(path)).toBe(schemaName);
-    expect(outputPathFor(path)).toBe(outputPath);
+    expect(outputPathFor(path, 'linkml')).toBe(linkmlPath);
+    expect(outputPathFor(path, 'mermaid')).toBe(mermaidPath);
   });
 });
 
-describe('exportToLinkML', () => {
+describe('the file sink', () => {
   it('writes the schema next to the note and says where', async () => {
     const vault = new StubVault();
 
-    await exportNote(vault, 'Sketches/My Notes.md', noteWith(CHARACTER));
+    await runExport(vault, 'Sketches/My Notes.md', noteWith(CHARACTER));
 
     expect(vault.created).toEqual(['Sketches/My Notes.linkml.yaml']);
     expect(vault.contentOf('Sketches/My Notes.linkml.yaml')).toContain('name: my_notes');
@@ -207,7 +232,7 @@ describe('exportToLinkML', () => {
     const vault = new StubVault();
     vault.add('Note.linkml.yaml', 'stale\n');
 
-    await exportNote(vault, 'Note.md', noteWith(CHARACTER));
+    await runExport(vault, 'Note.md', noteWith(CHARACTER));
 
     expect(vault.created).toEqual([]);
     expect(vault.modified).toEqual(['Note.linkml.yaml']);
@@ -217,7 +242,7 @@ describe('exportToLinkML', () => {
   it('writes nothing for a note without a skiss block', async () => {
     const vault = new StubVault();
 
-    await exportNote(vault, 'Note.md', '# Title\n\nProse only.\n');
+    await runExport(vault, 'Note.md', '# Title\n\nProse only.\n');
 
     expect(vault.created).toEqual([]);
     expect(vault.modified).toEqual([]);
@@ -230,7 +255,7 @@ describe('exportToLinkML', () => {
     // Four undeclared classes: one warning each, so the notice has to cut the list.
     const block = 'Character\n  a: Alpha\n  b: Beta\n  c: Gamma\n  d: Delta\n';
 
-    await exportNote(vault, 'Note.md', noteWith(block));
+    await runExport(vault, 'Note.md', noteWith(block));
 
     const diagnostics = compile(sourceOf([block.trimEnd()]), {
       target: 'linkml',
@@ -250,7 +275,7 @@ describe('exportToLinkML', () => {
   it('names the note line of a diagnostic in the second block, not the compiler line', async () => {
     const vault = new StubVault();
 
-    await exportNote(vault, 'Note.md', TWO_BLOCKS);
+    await runExport(vault, 'Note.md', TWO_BLOCKS);
 
     const { diagnostics } = compile(sourceOf(['Character\n  id*', 'Planet\n  ruler: Ruler']), {
       target: 'linkml',
@@ -267,7 +292,7 @@ describe('exportToLinkML', () => {
   it('shows no diagnostics notice when the note is clean', async () => {
     const vault = new StubVault();
 
-    await exportNote(vault, 'Note.md', noteWith(`${CHARACTER}\n${PLANET}`));
+    await runExport(vault, 'Note.md', noteWith(`${CHARACTER}\n${PLANET}`));
 
     expect(notices).toEqual(['Exported to Note.linkml.yaml']);
   });
@@ -276,8 +301,136 @@ describe('exportToLinkML', () => {
     const vault = new StubVault();
     vault.create = () => Promise.reject(new Error('Folder is read-only'));
 
-    await exportNote(vault, 'Note.md', noteWith(CHARACTER));
+    await runExport(vault, 'Note.md', noteWith(CHARACTER));
 
     expect(notices).toEqual(['Export failed: Folder is read-only']);
   });
+
+  it('writes the diagram of the whole note as .mmd and says where', async () => {
+    const vault = new StubVault();
+
+    await runExport(vault, 'Sketches/My Notes.md', NOTE, 'mermaid', 'file');
+
+    const expected = compile(sourceOf([CHARACTER.trimEnd(), PLANET.trimEnd()]), {
+      target: 'mermaid',
+    }).output;
+    expect(vault.created).toEqual(['Sketches/My Notes.mmd']);
+    expect(vault.contentOf('Sketches/My Notes.mmd')).toBe(expected);
+    // One diagram for the note, not one per block.
+    expect(expected).toContain('Character');
+    expect(expected).toContain('Planet');
+    expect(notices[0]).toBe('Exported to Sketches/My Notes.mmd');
+  });
+
+  it('overwrites a diagram that is already there', async () => {
+    const vault = new StubVault();
+    vault.add('Note.mmd', 'stale\n');
+
+    await runExport(vault, 'Note.md', noteWith(CHARACTER), 'mermaid', 'file');
+
+    expect(vault.created).toEqual([]);
+    expect(vault.modified).toEqual(['Note.mmd']);
+    expect(vault.contentOf('Note.mmd')).not.toContain('stale');
+  });
+
+  it('leaves the clipboard alone', async () => {
+    const vault = new StubVault();
+
+    await runExport(vault, 'Note.md', noteWith(CHARACTER));
+
+    expect(writeText).not.toHaveBeenCalled();
+  });
+});
+
+describe('the clipboard sink', () => {
+  it('copies the schema and says which format it copied', async () => {
+    const vault = new StubVault();
+
+    await runExport(vault, 'Sketches/My Notes.md', NOTE, 'linkml', 'clipboard');
+
+    expect(copied()).toBe(
+      compile(sourceOf([CHARACTER.trimEnd(), PLANET.trimEnd()]), {
+        target: 'linkml',
+        schemaName: 'My Notes',
+      }).output,
+    );
+    expect(notices).toEqual(['Copied LinkML to clipboard']);
+  });
+
+  it('copies the diagram and says which format it copied', async () => {
+    const vault = new StubVault();
+
+    await runExport(vault, 'Sketches/My Notes.md', NOTE, 'mermaid', 'clipboard');
+
+    expect(copied()).toBe(
+      compile(sourceOf([CHARACTER.trimEnd(), PLANET.trimEnd()]), { target: 'mermaid' }).output,
+    );
+    expect(notices).toEqual(['Copied Mermaid to clipboard']);
+  });
+
+  it.each([
+    ['linkml', 'Note.linkml.yaml'],
+    ['mermaid', 'Note.mmd'],
+  ] as const)('writes no %s file', async (format, path) => {
+    const vault = new StubVault();
+
+    await runExport(vault, 'Note.md', noteWith(CHARACTER), format, 'clipboard');
+
+    expect(vault.created).toEqual([]);
+    expect(vault.modified).toEqual([]);
+    expect(vault.getFileByPath(path)).toBeNull();
+  });
+
+  it('reports a clipboard the browser refused instead of throwing', async () => {
+    const vault = new StubVault();
+    writeText.mockRejectedValueOnce(new Error('Document is not focused'));
+
+    await runExport(vault, 'Note.md', noteWith(CHARACTER), 'linkml', 'clipboard');
+
+    expect(notices).toEqual(['Export failed: Document is not focused']);
+  });
+});
+
+describe('what both sinks and both formats do', () => {
+  const combinations = [
+    ['linkml', 'file'],
+    ['linkml', 'clipboard'],
+    ['mermaid', 'file'],
+    ['mermaid', 'clipboard'],
+  ] as const;
+
+  it.each(combinations)(
+    'says nothing else for a note without a block (%s, %s)',
+    async (format, sink) => {
+      const vault = new StubVault();
+
+      await runExport(vault, 'Note.md', '# Title\n\nProse only.\n', format, sink);
+
+      expect(vault.created).toEqual([]);
+      expect(writeText).not.toHaveBeenCalled();
+      expect(notices).toEqual(['No skiss blocks in this note']);
+    },
+  );
+
+  it.each(combinations)(
+    'follows its own notice with the diagnostics at their note lines (%s, %s)',
+    async (format, sink) => {
+      const vault = new StubVault();
+
+      await runExport(vault, 'Note.md', TWO_BLOCKS, format, sink);
+
+      const { diagnostics } = compile(sourceOf(['Character\n  id*', 'Planet\n  ruler: Ruler']), {
+        target: 'linkml',
+        schemaName: 'Note',
+      });
+      // `ruler: Ruler` is line 5 of the concatenated source and line 14 of the note,
+      // whichever format the note was compiled to.
+      expect(diagnostics.map((d) => d.line)).toEqual([5]);
+      expect(notices[1]).toBe(
+        ['1 diagnostic', ...diagnostics.map((d) => formatDiagnostic({ ...d, line: 14 }))].join(
+          '\n',
+        ),
+      );
+    },
+  );
 });

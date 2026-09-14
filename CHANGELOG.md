@@ -7,13 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Three more export commands.** Beside *Export LinkML to new file*, the
+  palette carries *Export LinkML to clipboard*, *Export Mermaid to new file*
+  and *Export Mermaid to clipboard*. The Mermaid ones export the diagram of the
+  whole note, the same one the blocks draw, to `<note>.mmd` next to the note or
+  to the clipboard. A clipboard command writes no file and a file command
+  leaves the clipboard alone; both report anything the compiler objects to the
+  way the LinkML export always has, at the note's own line numbers.
+
 ### Changed
 
-- **The export command is named "Export to LinkML".** Obsidian puts the plugin
-  name in front of every command itself, so the palette still reads
-  *Skiss: Export to LinkML* rather than repeating it. Its id is now
-  `export-linkml` (Obsidian prefixes the plugin id too), so a hotkey assigned
-  to the old id has to be set again.
+- **The export command is now four, and the LinkML one to a file is named
+  "Export LinkML to new file".** Obsidian puts the plugin name in front of
+  every command itself, so the palette reads *Skiss: Export LinkML to new file*
+  rather than repeating it. Its id is `export-linkml-file` (Obsidian prefixes
+  the plugin id too), so a hotkey assigned to the `skiss-export-linkml` of
+  0.1.0 has to be set again.
 
 ### Fixed
 

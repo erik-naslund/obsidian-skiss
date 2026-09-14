@@ -1,10 +1,46 @@
 import { MarkdownView, Plugin } from 'obsidian';
-import { exportToLinkML } from './export';
+import { exportNote, type Format, type Sink } from './export';
 import { render } from './render';
 import { DEFAULT_SETTINGS, readSettings, type SkissSettings, SkissSettingTab } from './settings';
 
 const MARKDOWN = 'md';
 const MARKDOWN_VIEW = 'markdown';
+
+interface ExportCommand {
+  /** No plugin id here: Obsidian prefixes `skiss:` itself. */
+  id: string;
+  /** No plugin name either; the palette reads "Skiss: Export …" either way. */
+  name: string;
+  format: Format;
+  sink: Sink;
+}
+
+const EXPORT_COMMANDS: readonly ExportCommand[] = [
+  {
+    id: 'export-linkml-file',
+    name: 'Export LinkML to new file',
+    format: 'linkml',
+    sink: 'file',
+  },
+  {
+    id: 'export-linkml-clipboard',
+    name: 'Export LinkML to clipboard',
+    format: 'linkml',
+    sink: 'clipboard',
+  },
+  {
+    id: 'export-mermaid-file',
+    name: 'Export Mermaid to new file',
+    format: 'mermaid',
+    sink: 'file',
+  },
+  {
+    id: 'export-mermaid-clipboard',
+    name: 'Export Mermaid to clipboard',
+    format: 'mermaid',
+    sink: 'clipboard',
+  },
+];
 
 export default class SkissPlugin extends Plugin {
   settings: SkissSettings = { ...DEFAULT_SETTINGS };
@@ -18,28 +54,31 @@ export default class SkissPlugin extends Plugin {
 
     this.addSettingTab(new SkissSettingTab(this.app, this));
 
-    // Obsidian prefixes the plugin name in the palette, so the name carries
-    // none: it reads "Skiss: Export to LinkML" either way.
+    for (const command of EXPORT_COMMANDS) {
+      this.addExportCommand(command);
+    }
+  }
+
+  async saveSettings(): Promise<void> {
+    await this.saveData(this.settings);
+    this.rerenderOpenNotes();
+  }
+
+  private addExportCommand({ id, name, format, sink }: ExportCommand): void {
     this.addCommand({
-      // No plugin id in the command id either: Obsidian prefixes `skiss:` itself.
-      id: 'export-linkml',
-      name: 'Export to LinkML',
+      id,
+      name,
       checkCallback: (checking: boolean): boolean => {
         const file = this.app.workspace.getActiveFile();
         if (file === null || file.extension !== MARKDOWN) {
           return false;
         }
         if (!checking) {
-          void exportToLinkML(this.app.vault, file);
+          void exportNote(this.app.vault, file, format, sink);
         }
         return true;
       },
     });
-  }
-
-  async saveSettings(): Promise<void> {
-    await this.saveData(this.settings);
-    this.rerenderOpenNotes();
   }
 
   /**

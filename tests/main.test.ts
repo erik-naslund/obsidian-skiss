@@ -65,6 +65,11 @@ vi.mock('obsidian', () => ({
   Setting: class {},
 }));
 
+// `navigator.clipboard` is a browser global inside Obsidian; a test run has to
+// supply one.
+const writeText = vi.fn((_text: string) => Promise.resolve());
+vi.stubGlobal('navigator', { clipboard: { writeText } });
+
 const MANIFEST = {} as unknown as PluginManifest;
 const BLOCK = '```skiss\nCharacter\n  id*\n```\n';
 
@@ -80,7 +85,6 @@ interface Recorded {
 interface Loaded {
   plugin: SkissPlugin;
   vault: StubVault;
-  command: Command;
   /** What the plugin wrote with `saveData`, in order. */
   saved: unknown[];
   /** Every markdown view the stubbed workspace has open. */
@@ -111,11 +115,16 @@ async function load(
   recorded.stored = stored;
   await plugin.onload();
 
-  const command = commands[0];
+  return { plugin, vault, saved: recorded.saved, views, otherView };
+}
+
+/** The command the plugin registered under `id`. */
+function commandWith(id: string): Command {
+  const command = commands.find((registered) => registered.id === id);
   if (command === undefined) {
-    throw new Error('the plugin registered no command');
+    throw new Error(`the plugin registered no command with the id ${id}`);
   }
-  return { plugin, vault, command, saved: recorded.saved, views, otherView };
+  return command;
 }
 
 /** What `registerMarkdownCodeBlockProcessor` was handed, run over one block. */
@@ -138,40 +147,74 @@ beforeEach(() => {
   commands.length = 0;
   processors.length = 0;
   settingTabs.length = 0;
+  writeText.mockClear();
 });
 
-describe('the Export to LinkML command', () => {
-  it('registers under the id and name the palette shows', async () => {
-    const { command } = await load();
+const EXPORT_IDS = [
+  'export-linkml-file',
+  'export-linkml-clipboard',
+  'export-mermaid-file',
+  'export-mermaid-clipboard',
+];
 
-    expect(commands).toHaveLength(1);
-    expect(command.id).toBe('export-linkml');
-    // The palette prefixes the plugin name itself; carrying it here would double it.
-    expect(command.name).toBe('Export to LinkML');
+describe('the export commands', () => {
+  it('registers the four ids and names the palette shows', async () => {
+    await load();
+
+    // The palette prefixes the plugin name and id itself; carrying either here
+    // would double it. The old `export-linkml` is gone with the rename.
+    expect(commands.map((command) => [command.id, command.name])).toEqual([
+      ['export-linkml-file', 'Export LinkML to new file'],
+      ['export-linkml-clipboard', 'Export LinkML to clipboard'],
+      ['export-mermaid-file', 'Export Mermaid to new file'],
+      ['export-mermaid-clipboard', 'Export Mermaid to clipboard'],
+    ]);
   });
 
   it.each([
     ['no file is active', null],
     ['the active file is not markdown', new StubFile('diagram.canvas')],
   ])('is unavailable when %s', async (_name, activeFile) => {
-    const { command } = await load(activeFile);
+    await load(activeFile);
 
-    expect(check(command, true)).toBe(false);
+    for (const id of EXPORT_IDS) {
+      expect(check(commandWith(id), true)).toBe(false);
+    }
   });
 
   it('is available for a markdown note, and checking alone exports nothing', async () => {
-    const { vault, command } = await load();
+    const { vault } = await load();
 
-    expect(check(command, true)).toBe(true);
+    for (const id of EXPORT_IDS) {
+      expect(check(commandWith(id), true)).toBe(true);
+    }
     expect(vault.created).toEqual([]);
+    expect(writeText).not.toHaveBeenCalled();
   });
 
-  it('exports the active note when invoked', async () => {
-    const { vault, command } = await load();
+  it.each([
+    ['export-linkml-file', 'Note.linkml.yaml'],
+    ['export-mermaid-file', 'Note.mmd'],
+  ])('writes the active note next to itself when %s is invoked', async (id, path) => {
+    const { vault } = await load();
 
-    expect(check(command, false)).toBe(true);
+    expect(check(commandWith(id), false)).toBe(true);
 
-    await vi.waitFor(() => expect(vault.created).toEqual(['Note.linkml.yaml']));
+    await vi.waitFor(() => expect(vault.created).toEqual([path]));
+    expect(writeText).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['export-linkml-clipboard', 'name: note'],
+    ['export-mermaid-clipboard', 'classDiagram'],
+  ])('copies the active note when %s is invoked', async (id, text) => {
+    const { vault } = await load();
+
+    expect(check(commandWith(id), false)).toBe(true);
+
+    await vi.waitFor(() => expect(writeText).toHaveBeenCalledOnce());
+    expect(writeText.mock.calls[0]?.[0]).toContain(text);
+    expect(vault.created).toEqual([]);
   });
 });
 

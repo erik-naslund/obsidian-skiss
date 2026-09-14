@@ -1,10 +1,27 @@
-import { compile, type Diagnostic, formatDiagnostic } from '@eriknaslund/skiss';
+import { type CompileResult, compile, type Diagnostic, formatDiagnostic } from '@eriknaslund/skiss';
 import { Notice, type TFile, type Vault } from 'obsidian';
 
-/** The info string of a block this command exports, and the fence it opens. */
+/** The info string of a block these commands export, and the fence it opens. */
 const LANGUAGE = 'skiss';
 
-const OUTPUT_SUFFIX = '.linkml.yaml';
+/** What the blocks of a note are compiled to. */
+export type Format = 'linkml' | 'mermaid';
+
+/** Where the compiled text goes. */
+export type Sink = 'file' | 'clipboard';
+
+interface FormatSpec {
+  /** What the notices call the format. */
+  label: string;
+  /** Appended to the note's basename by the file sink. */
+  suffix: string;
+}
+
+const FORMATS: Record<Format, FormatSpec> = {
+  linkml: { label: 'LinkML', suffix: '.linkml.yaml' },
+  // `.mmd` is the extension the skiss CLI's own fixtures use.
+  mermaid: { label: 'Mermaid', suffix: '.mmd' },
+};
 
 const NO_BLOCKS = 'No skiss blocks in this note';
 
@@ -91,19 +108,37 @@ export function schemaNameFor(notePath: string): string {
   return basenameOf(notePath);
 }
 
-/** `<note>.linkml.yaml`, in the note's own folder. */
-export function outputPathFor(notePath: string): string {
+/** `<note>.linkml.yaml` or `<note>.mmd`, in the note's own folder. */
+export function outputPathFor(notePath: string, format: Format): string {
   const slash = notePath.lastIndexOf('/');
   const folder = slash === -1 ? '' : notePath.slice(0, slash + 1);
-  return `${folder}${basenameOf(notePath)}${OUTPUT_SUFFIX}`;
+  return `${folder}${basenameOf(notePath)}${FORMATS[format].suffix}`;
 }
 
 /**
- * Compiles every `skiss` block in `file` and writes the schema next to it.
- * Reports what happened through notices and never throws: a command that
- * fails silently leaves the vault in a state the user cannot see.
+ * The whole note as one document in `format`. Both formats read the same
+ * concatenated source, so a note is one schema and one diagram, and the
+ * diagnostics of either map back to note lines the same way.
  */
-export async function exportToLinkML(vault: Vault, file: TFile): Promise<void> {
+export function compileNote(source: string, format: Format, notePath: string): CompileResult {
+  // `notes` stays off, so `?` doubts are no more drawn on an exported diagram
+  // than on the one in the block.
+  return format === 'mermaid'
+    ? compile(source, { target: 'mermaid' })
+    : compile(source, { target: 'linkml', schemaName: schemaNameFor(notePath) });
+}
+
+/**
+ * Compiles every `skiss` block in `file` to `format` and hands the text to
+ * `sink`. Reports what happened through notices and never throws: a command
+ * that fails silently leaves the vault in a state the user cannot see.
+ */
+export async function exportNote(
+  vault: Vault,
+  file: TFile,
+  format: Format,
+  sink: Sink,
+): Promise<void> {
   try {
     const blocks = skissBlocks(await vault.read(file));
     if (blocks.length === 0) {
@@ -111,26 +146,41 @@ export async function exportToLinkML(vault: Vault, file: TFile): Promise<void> {
       return;
     }
 
-    const { output, diagnostics } = compile(concatenateBlocks(blocks), {
-      target: 'linkml',
-      schemaName: schemaNameFor(file.path),
-    });
+    const { output, diagnostics } = compileNote(concatenateBlocks(blocks), format, file.path);
 
-    const path = outputPathFor(file.path);
-    const existing = vault.getFileByPath(path);
-    if (existing === null) {
-      await vault.create(path, output);
+    if (sink === 'file') {
+      await writeNextToNote(vault, file.path, format, output);
     } else {
-      await vault.modify(existing, output);
+      await copyToClipboard(format, output);
     }
 
-    new Notice(`Exported to ${path}`);
     if (diagnostics.length > 0) {
       new Notice(diagnosticsMessage(blocks, diagnostics));
     }
   } catch (error) {
     new Notice(`Export failed: ${messageOf(error)}`);
   }
+}
+
+async function writeNextToNote(
+  vault: Vault,
+  notePath: string,
+  format: Format,
+  output: string,
+): Promise<void> {
+  const path = outputPathFor(notePath, format);
+  const existing = vault.getFileByPath(path);
+  if (existing === null) {
+    await vault.create(path, output);
+  } else {
+    await vault.modify(existing, output);
+  }
+  new Notice(`Exported to ${path}`);
+}
+
+async function copyToClipboard(format: Format, output: string): Promise<void> {
+  await navigator.clipboard.writeText(output);
+  new Notice(`Copied ${FORMATS[format].label} to clipboard`);
 }
 
 function diagnosticsMessage(blocks: Block[], diagnostics: Diagnostic[]): string {

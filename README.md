@@ -25,7 +25,7 @@ In Reading view, and in Live Preview when the cursor is outside the block, that 
 
 - **Renders `skiss` code blocks** as class diagrams, using the Mermaid that ships with Obsidian.
 - **Shows diagnostics** below the diagram instead of failing: an unknown type, a class you referenced but have not written yet, a line it could not read.
-- **Exports to LinkML.** The command **Skiss: Export to LinkML** writes a `.linkml.yaml` next to the note.
+- **Exports the note**, with four commands: **Skiss: Export LinkML to new file** and **Export Mermaid to new file** write a `.linkml.yaml` or a `.mmd` next to the note, and **Export LinkML to clipboard** and **Export Mermaid to clipboard** put the same text on the clipboard. Every `skiss` block in the note is exported together, as one schema and one diagram.
 
 Nothing else. The language, the parser and the LinkML generator live in the [`skiss`](https://github.com/erik-naslund/skiss) package. This plugin is the thinnest possible layer over it.
 
