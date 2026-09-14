@@ -1,6 +1,6 @@
 # Architecture
 
-This plugin renders Skiss inside Obsidian. It contains no knowledge of the language. Parsing, diagnostics and generation come from the `skiss` npm package; the plugin wires them to Obsidian's APIs and stops there.
+This plugin renders Skiss inside Obsidian. It contains no knowledge of the language. Parsing, diagnostics and generation come from the `skiss` package (on npm as `@eriknaslund/skiss`); the plugin wires them to Obsidian's APIs and stops there.
 
 ## Layout
 
