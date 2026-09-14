@@ -21,7 +21,8 @@ export default class SkissPlugin extends Plugin {
     // Obsidian prefixes the plugin name in the palette, so the name carries
     // none: it reads "Skiss: Export to LinkML" either way.
     this.addCommand({
-      id: 'skiss-export-linkml',
+      // No plugin id in the command id either: Obsidian prefixes `skiss:` itself.
+      id: 'export-linkml',
       name: 'Export to LinkML',
       checkCallback: (checking: boolean): boolean => {
         const file = this.app.workspace.getActiveFile();

@@ -158,7 +158,7 @@ What it is looking for, and where this plugin stood at the guideline pass
 | `fundingUrl` only when donations are accepted | [Submission requirements][requirements] | omitted |
 | `isDesktopOnly` true only with Node.js or Electron APIs | [Submission requirements][requirements] | `false`; the plugin uses neither |
 | The sample plugin's code is gone | [Submission requirements][requirements] | none of it was ever here |
-| The plugin id is not repeated in a command id | [Submission requirements][requirements] | **open**: `skiss-export-linkml` keeps its id by decision (issue #23, D1), so Obsidian registers `skiss:skiss-export-linkml`. Expect the scan to say so |
+| The plugin id is not repeated in a command id | [Submission requirements][requirements] | `export-linkml`, which Obsidian registers as `skiss:export-linkml` |
 | A `LICENSE` file, and the licence named | Developer policies | MIT |
 | No obfuscation, no ads, no telemetry, no self-updating | Developer policies | none of them |
 | Network use, an account, files outside the vault, all disclosed in the README | Developer policies | nothing to disclose: the plugin reads and writes only the vault |

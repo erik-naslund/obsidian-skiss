@@ -11,8 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **The export command is named "Export to LinkML".** Obsidian puts the plugin
   name in front of every command itself, so the palette still reads
-  *Skiss: Export to LinkML* rather than repeating it. The command keeps its id,
-  so a hotkey you assigned to it still works.
+  *Skiss: Export to LinkML* rather than repeating it. Its id is now
+  `export-linkml` (Obsidian prefixes the plugin id too), so a hotkey assigned
+  to the old id has to be set again.
 
 ### Fixed
 
