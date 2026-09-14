@@ -2,57 +2,82 @@ import type { App, Command, PluginManifest, PluginSettingTab, WorkspaceLeaf } fr
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import SkissPlugin from '../src/main';
 import { asContainer, StubElement } from './stub-dom';
-import { asFile, asVault, StubFile, StubVault } from './stub-vault';
+import { asVault, StubFile, StubVault } from './stub-vault';
 
-const { commands, loadMermaid, MarkdownViewStub, Notice, PluginStub, processors, settingTabs } =
-  vi.hoisted(() => {
-    const commands: Command[] = [];
-    const processors: ((source: string, el: unknown) => unknown)[] = [];
-    const settingTabs: unknown[] = [];
-    return {
-      commands,
-      processors,
-      settingTabs,
-      Notice: class {},
-      loadMermaid: vi.fn(),
-      /** `main.ts` narrows a leaf's view with `instanceof`; the double is what it narrows to. */
-      MarkdownViewStub: class {
-        readonly previewMode = { rerender: vi.fn() };
-      },
-      /** Everything `main.ts` inherits from `Plugin`, and no more. */
-      PluginStub: class {
-        stored: unknown = null;
-        readonly saved: unknown[] = [];
+const {
+  commands,
+  loadMermaid,
+  MarkdownRenderChildStub,
+  MarkdownViewStub,
+  normalizePath,
+  Notice,
+  PluginStub,
+  processors,
+  renderChildren,
+  settingTabs,
+} = vi.hoisted(() => {
+  const commands: Command[] = [];
+  const processors: ((source: string, el: unknown, ctx: unknown) => unknown)[] = [];
+  const settingTabs: unknown[] = [];
+  const renderChildren: unknown[] = [];
+  return {
+    commands,
+    processors,
+    renderChildren,
+    settingTabs,
+    Notice: class {},
+    loadMermaid: vi.fn(),
+    normalizePath: (path: string): string => path,
+    /** What `ctx.addChild` is handed: the container it is told to watch. */
+    MarkdownRenderChildStub: class {
+      constructor(readonly containerEl: unknown) {}
+    },
+    /**
+     * `main.ts` narrows a leaf's view with `instanceof` and reaches the note
+     * through the view; the double is what it narrows to and what it reads.
+     */
+    MarkdownViewStub: class {
+      readonly previewMode = { rerender: vi.fn() };
+      file: StubFile | null = null;
+      buffer: string | null = null;
+      readonly editor = {
+        getValue: (): string => this.buffer ?? this.file?.content ?? '',
+      };
+    },
+    /** Everything `main.ts` inherits from `Plugin`, and no more. */
+    PluginStub: class {
+      stored: unknown = null;
+      readonly saved: unknown[] = [];
 
-        constructor(readonly app: App) {}
+      constructor(readonly app: App) {}
 
-        addCommand(command: Command): Command {
-          commands.push(command);
-          return command;
-        }
+      addCommand(command: Command): Command {
+        commands.push(command);
+        return command;
+      }
 
-        addSettingTab(settingTab: PluginSettingTab): void {
-          settingTabs.push(settingTab);
-        }
+      addSettingTab(settingTab: PluginSettingTab): void {
+        settingTabs.push(settingTab);
+      }
 
-        loadData(): Promise<unknown> {
-          return Promise.resolve(this.stored);
-        }
+      loadData(): Promise<unknown> {
+        return Promise.resolve(this.stored);
+      }
 
-        saveData(data: unknown): Promise<void> {
-          this.saved.push(data);
-          return Promise.resolve();
-        }
+      saveData(data: unknown): Promise<void> {
+        this.saved.push(data);
+        return Promise.resolve();
+      }
 
-        registerMarkdownCodeBlockProcessor(
-          _language: string,
-          handler: (source: string, el: unknown) => unknown,
-        ): void {
-          processors.push(handler);
-        }
-      },
-    };
-  });
+      registerMarkdownCodeBlockProcessor(
+        _language: string,
+        handler: (source: string, el: unknown, ctx: unknown) => unknown,
+      ): void {
+        processors.push(handler);
+      }
+    },
+  };
+});
 
 // The npm `obsidian` package is types only, so every value the plugin imports
 // from it is a double.
@@ -60,6 +85,8 @@ vi.mock('obsidian', () => ({
   Plugin: PluginStub,
   Notice,
   loadMermaid,
+  normalizePath,
+  MarkdownRenderChild: MarkdownRenderChildStub,
   MarkdownView: MarkdownViewStub,
   PluginSettingTab: class {},
   Setting: class {},
@@ -76,6 +103,9 @@ const BLOCK = '```skiss\nCharacter\n  id*\n```\n';
 // A question and a description on one class, so a hidden section is visible in what renders.
 const SOURCE = 'Character   # a person or droid   ? is a droid a character\n  id*\n';
 
+// `Ferson` is not a class anyone declared: a warning on the block's second line.
+const WITH_WARNING = 'Character\n  homeworld: Ferson\n';
+
 /** The `Plugin` double's own fields, which the plugin's type knows nothing of. */
 interface Recorded {
   stored: unknown;
@@ -91,22 +121,42 @@ interface Loaded {
   views: InstanceType<typeof MarkdownViewStub>[];
   /** A leaf holding something that is not a markdown view. */
   otherView: { previewMode: { rerender: ReturnType<typeof vi.fn> } };
+  /** The call that carries a changed setting into Live Preview. */
+  updateOptions: ReturnType<typeof vi.fn>;
+}
+
+interface LoadOptions {
+  /** What `loadData` hands back. */
+  stored?: unknown;
+  /** What the editor holds when it is ahead of the file on disk. */
+  buffer?: string | null;
+  /** Whether a markdown view has the focus at all, or a graph or a canvas has. */
+  markdownViewActive?: boolean;
 }
 
 async function load(
   activeFile: StubFile | null = new StubFile('Note.md', BLOCK),
-  stored: unknown = null,
+  { stored = null, buffer = null, markdownViewActive = true }: LoadOptions = {},
 ): Promise<Loaded> {
   const vault = new StubVault();
   const views = [new MarkdownViewStub(), new MarkdownViewStub()];
+  // The first view is the active one: it holds the note the commands export.
+  const activeView = views[0];
+  if (activeView !== undefined) {
+    activeView.file = activeFile;
+    activeView.buffer = buffer;
+  }
   // The third leaf holds something that is not a markdown view; the plugin skips it.
   const otherView = { previewMode: { rerender: vi.fn() } };
   const leaves = [...views, otherView].map((view) => ({ view }) as unknown as WorkspaceLeaf);
+  const updateOptions = vi.fn();
   const app = {
     vault: asVault(vault),
     workspace: {
-      getActiveFile: () => (activeFile === null ? null : asFile(activeFile)),
+      getActiveViewOfType: () =>
+        activeFile === null || !markdownViewActive ? null : (activeView ?? null),
       getLeavesOfType: (viewType: string) => (viewType === 'markdown' ? leaves : []),
+      updateOptions,
     },
   } as unknown as App;
 
@@ -115,7 +165,7 @@ async function load(
   recorded.stored = stored;
   await plugin.onload();
 
-  return { plugin, vault, saved: recorded.saved, views, otherView };
+  return { plugin, vault, saved: recorded.saved, views, otherView, updateOptions };
 }
 
 /** The command the plugin registered under `id`. */
@@ -127,14 +177,25 @@ function commandWith(id: string): Command {
   return command;
 }
 
-/** What `registerMarkdownCodeBlockProcessor` was handed, run over one block. */
-async function renderBlock(source: string): Promise<StubElement> {
+/**
+ * What `registerMarkdownCodeBlockProcessor` was handed, run over one block.
+ * `lineStart` is what Obsidian's own context reports for the section, and
+ * `null` is what it reports for a block it cannot place.
+ */
+async function renderBlock(source: string, lineStart: number | null = null): Promise<StubElement> {
   const handler = processors[0];
   if (handler === undefined) {
     throw new Error('the plugin registered no code block processor');
   }
   const el = new StubElement();
-  await handler(source, asContainer(el));
+  const ctx = {
+    addChild: (child: unknown): void => {
+      renderChildren.push(child);
+    },
+    getSectionInfo: () =>
+      lineStart === null ? null : { text: source, lineStart, lineEnd: lineStart + 2 },
+  };
+  await handler(source, asContainer(el), ctx);
   return el;
 }
 
@@ -146,6 +207,7 @@ function check(command: Command, checking: boolean): unknown {
 beforeEach(() => {
   commands.length = 0;
   processors.length = 0;
+  renderChildren.length = 0;
   settingTabs.length = 0;
   writeText.mockClear();
 });
@@ -180,6 +242,26 @@ describe('the export commands', () => {
     for (const id of EXPORT_IDS) {
       expect(check(commandWith(id), true)).toBe(false);
     }
+  });
+
+  it('is unavailable when the focus is a graph or a canvas rather than a note', async () => {
+    // A note is open behind it, which is exactly what the old gate exported.
+    await load(new StubFile('Note.md', BLOCK), { markdownViewActive: false });
+
+    for (const id of EXPORT_IDS) {
+      expect(check(commandWith(id), true)).toBe(false);
+    }
+  });
+
+  it('exports what the editor holds, not what the file on disk holds', async () => {
+    const { vault } = await load(new StubFile('Note.md', BLOCK), {
+      buffer: '```skiss\nCharacter\n  id*\n  name\n```\n',
+    });
+
+    expect(check(commandWith('export-linkml-file'), false)).toBe(true);
+
+    await vi.waitFor(() => expect(vault.created).toEqual(['Note.linkml.yaml']));
+    expect(vault.contentOf('Note.linkml.yaml')).toContain('name');
   });
 
   it('is available for a markdown note, and checking alone exports nothing', async () => {
@@ -236,14 +318,16 @@ describe('the settings', () => {
   });
 
   it('loads what the vault holds', async () => {
-    const { plugin } = await load(new StubFile('Note.md', BLOCK), { showComments: false });
+    const { plugin } = await load(new StubFile('Note.md', BLOCK), {
+      stored: { showComments: false },
+    });
 
     expect(plugin.settings.showComments).toBe(false);
     expect(plugin.settings.showQuestions).toBe(true);
   });
 
   it('renders every block with the settings it loaded', async () => {
-    await load(new StubFile('Note.md', BLOCK), { showComments: false });
+    await load(new StubFile('Note.md', BLOCK), { stored: { showComments: false } });
 
     const el = await renderBlock(SOURCE);
 
@@ -264,7 +348,7 @@ describe('the settings', () => {
   });
 
   it('re-renders every open note when the settings change', async () => {
-    const { plugin, views, otherView } = await load();
+    const { plugin, views, otherView, updateOptions } = await load();
 
     await plugin.saveSettings();
 
@@ -273,6 +357,8 @@ describe('the settings', () => {
     }
     // A leaf that is not a markdown view is left alone, however it looks.
     expect(otherView.previewMode.rerender).not.toHaveBeenCalled();
+    // The preview rerender does not reach Live Preview; this is the call that does.
+    expect(updateOptions).toHaveBeenCalled();
   });
 
   it('renders a block it renders again with the settings that changed', async () => {
@@ -286,6 +372,39 @@ describe('the settings', () => {
     expect(el.find('skiss-comments')?.lines()).toEqual([
       'Comments',
       'Character: a person or droid',
+    ]);
+  });
+});
+
+describe('the code block processor', () => {
+  it('registers what it renders as a child of the section that holds it', async () => {
+    await load();
+
+    const el = await renderBlock(SOURCE);
+
+    expect(renderChildren).toHaveLength(1);
+    expect((renderChildren[0] as { containerEl: unknown }).containerEl).toBe(el);
+  });
+
+  it('names the note line of a diagnostic when Obsidian says where the block sits', async () => {
+    await load();
+
+    // The fence on the note's eleventh line, 0-based as Obsidian counts it, so
+    // the body starts on the twelfth and its second line is the note's 13th.
+    const el = await renderBlock(WITH_WARNING, 10);
+
+    expect(el.find('skiss-diagnostics')?.lines()).toEqual([
+      'Line 13: class `Ferson` is not declared',
+    ]);
+  });
+
+  it("falls back to the block's own lines when Obsidian will not say", async () => {
+    await load();
+
+    const el = await renderBlock(WITH_WARNING);
+
+    expect(el.find('skiss-diagnostics')?.lines()).toEqual([
+      'Block line 2: class `Ferson` is not declared',
     ]);
   });
 });

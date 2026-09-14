@@ -1,17 +1,20 @@
 # Roadmap
 
-## Milestone 1: See it
+## Milestone 1: See it — done, 0.1.0 and 0.1.1
 
-Done when a `skiss` code block renders as a class diagram in Reading view and Live Preview, a broken line shows as a note rather than a blank block, and "Export to LinkML" writes a file next to the note. Installable with BRAT.
+A `skiss` code block renders as a class diagram in Reading view and Live
+Preview, a broken line shows as a note rather than a blank block, and the note
+exports to LinkML and to Mermaid, to a file next to it or to the clipboard.
 
-1. Plugin skeleton: manifest, esbuild, CI, a release workflow that attaches the assets.
-2. Code block processor rendering diagnostics and the Mermaid diagram.
-3. Export command.
-4. First tagged release, installable via BRAT.
+1. ~~Plugin skeleton: manifest, esbuild, CI, a release workflow that attaches the assets.~~
+2. ~~Code block processor rendering diagnostics and the Mermaid diagram.~~
+3. ~~Export commands: LinkML and Mermaid, to a new file or to the clipboard.~~
+4. ~~First tagged release, installable via BRAT.~~
 
-## Milestone 2: In the list
+## Milestone 2: In the list — in progress
 
-Community plugin submission and whatever the review asks for.
+Community plugin submission and whatever the review asks for. The guideline
+pass and the post-review fixes are done; the submission is with the reviewers.
 
 ## Milestone 3: Editing comfort
 

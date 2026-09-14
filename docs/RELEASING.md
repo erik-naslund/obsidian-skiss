@@ -18,6 +18,14 @@ One PR, on a branch named for the version (`release/0.1.0`).
      the tag against.
    - `versions.json` — add a `"<version>": "<minAppVersion>"` entry, keeping the
      existing ones. Obsidian reads this to decide whether a vault is new enough.
+     `minAppVersion` is the oldest Obsidian this plugin is *tested against*, not
+     the oldest it might happen to run on: the submission requirements say to
+     state the minimum required version and, if you do not know one, to use the
+     latest stable build number. Carry the previous entry's value forward
+     unchanged unless the release starts using an API that needs a newer
+     Obsidian, or you have tested against an older one on purpose; in either
+     case say which version you tested in the PR, and never lower it to a
+     version nobody has run.
    - `package.json` — `version`.
    - `tests/manifest.test.ts` asserts the manifest version and that the three
      files are in step, so it changes with them.
@@ -154,11 +162,11 @@ What it is looking for, and where this plugin stood at the guideline pass
 | `README.md`, `LICENSE`, `manifest.json` at the root | [Submit your plugin][submit] | all three |
 | `id` lowercase letters and hyphens, not containing `obsidian`, not ending in `plugin` | Manifest reference | `skiss` |
 | Description at most 250 characters, ending in a period, no emoji | [Submission requirements][requirements] | 65 characters |
-| `minAppVersion` is the lowest version that works | [Submission requirements][requirements] | `1.13.1` |
+| `minAppVersion` is the minimum required version — the latest stable build number when none is known | [Submission requirements][requirements] | `1.13.1`, the build tested against |
 | `fundingUrl` only when donations are accepted | [Submission requirements][requirements] | omitted |
 | `isDesktopOnly` true only with Node.js or Electron APIs | [Submission requirements][requirements] | `false`; the plugin uses neither |
 | The sample plugin's code is gone | [Submission requirements][requirements] | none of it was ever here |
-| The plugin id is not repeated in a command id | [Submission requirements][requirements] | `export-linkml`, which Obsidian registers as `skiss:export-linkml` |
+| The plugin id is not repeated in a command id | [Submission requirements][requirements] | `export-linkml-file` and its three siblings, which Obsidian registers as `skiss:export-linkml-file` and so on |
 | A `LICENSE` file, and the licence named | Developer policies | MIT |
 | No obfuscation, no ads, no telemetry, no self-updating | Developer policies | none of them |
 | Network use, an account, files outside the vault, all disclosed in the README | Developer policies | nothing to disclose: the plugin reads and writes only the vault |

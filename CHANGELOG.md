@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **A diagnostic under a diagram names the line of the note**, the same line the
+  export notice names, instead of counting from the top of the code block. Where
+  Obsidian will not say where a block sits, the block's own numbering is kept and
+  the wording says so ("Block line 3:").
+- **An export reads what you have typed**, not what was last written to disk. The
+  commands take the note out of the editor, so a class written a second ago is in
+  the schema.
+- **An export to a file says whether it created or refreshed it.** The file is
+  still the note's own sibling — re-exporting a note refreshes the file it wrote
+  last time, and no other file is ever touched — but the notice now reads
+  *Created …* or *Updated …*, and an existing file is written through Obsidian's
+  own `process` rather than `modify`.
+- **A `skiss` block inside a blockquote or a nested list is exported**, as it has
+  always been rendered. Both were silently skipped, so the export could report
+  "No skiss blocks in this note" for a note showing a diagram.
+- **The export commands are offered only while a note is open.** Run from a graph
+  view or a canvas, they used to export whichever note had been open before.
+- **A compiler that throws no longer empties the block.** The failure is reported
+  where the diagnostics are, which is what "never an empty block" has always
+  promised.
+- **A changed setting reaches Live Preview**, not only Reading view.
+
 ## [0.1.1] - 2026-09-14
 
 Ready for the community list: the export commands the first vault test asked
@@ -31,11 +55,6 @@ for, and the plugin guideline pass.
   the plugin id too), so a hotkey assigned to the `skiss-export-linkml` of
   0.1.0 has to be set again.
 
-### Fixed
-
-- **The README says diagnostics are listed below the diagram**, which is where
-  they have always been rendered.
-
 ### Dependencies
 
 - `@eriknaslund/skiss` 0.3.0.
@@ -54,8 +73,8 @@ shape.
 - **A half-written line does not blank the block.** Anything the compiler has
   to say is listed below the diagram in plain words — a line it could not read,
   a type it does not know, a class you referenced but have not written yet —
-  and the rest of the diagram still renders. Each note says which line of the
-  note it is about. A block is never empty and never throws.
+  and the rest of the diagram still renders. Each note says which line it is
+  about, counted inside the block. A block is never empty and never throws.
 - **Open questions and comments are listed below the diagram.** The `?`
   questions of the block appear under an "Open questions" heading and the `#`
   descriptions under a "Comments" heading, each line saying what carries it,

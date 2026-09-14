@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: A question about the Skiss language
+    url: https://github.com/erik-naslund/skiss/issues
+    about: The notation, the parser, the diagnostics and the LinkML output live there.
+  - name: How to build, test and send a change
+    url: https://github.com/erik-naslund/obsidian-skiss/blob/main/CONTRIBUTING.md
+    about: CONTRIBUTING.md.

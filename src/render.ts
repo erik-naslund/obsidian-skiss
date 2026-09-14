@@ -1,13 +1,14 @@
 import {
   type ClassNode,
-  compile,
   type Diagnostic,
   type Document,
   type FieldNode,
   parse,
   resolve,
+  toMermaid,
 } from '@eriknaslund/skiss';
 import { loadMermaid } from 'obsidian';
+import { describe, type LineScope } from './diagnostics';
 import type { SkissSettings } from './settings';
 
 /** `loadMermaid()` is untyped; this is the one call the plugin makes into it. */
@@ -15,14 +16,9 @@ interface Mermaid {
   render(id: string, text: string): Promise<{ svg: string }>;
 }
 
-/**
- * What an empty or comment-only document compiles to. Mermaid rejects a
- * diagram with no body, so this text never reaches it.
- */
-const EMPTY_DIAGRAM = 'classDiagram';
-
 const PLACEHOLDER = 'Nothing to draw yet';
 const RENDER_FAILED = 'Diagram could not be rendered';
+const COMPILE_FAILED = 'Block could not be compiled';
 const SVG_UNPARSEABLE = 'Mermaid returned an SVG that could not be parsed';
 
 const QUESTIONS_HEADING = 'Open questions';
@@ -32,45 +28,90 @@ const COMMENTS_HEADING = 'Comments';
 // note share one, so every block gets its own.
 let blocksRendered = 0;
 
+/** How the lines of a block's diagnostics are turned into the lines a reader sees. */
+interface Numbering {
+  /** Added to a line the compiler reports. */
+  offset: number;
+  scope: LineScope;
+}
+
 /**
  * Compiles one `skiss` block and fills `el` with its diagram, its diagnostics,
  * its open questions and its comments, in that order, leaving out what
  * `settings` hides. Whatever the source, it renders something and throws
  * nothing.
+ *
+ * A block is a diagram; a note is a schema. The block is compiled on its own,
+ * so a class declared in another block of the same note is undeclared here and
+ * says so, while the export commands compile every block of the note together.
+ * README, "Rendering vs export", says the same to a reader.
+ *
+ * `lineStart` is the note's own line, 0-based, that the opening fence sits on,
+ * which is what `MarkdownPostProcessorContext.getSectionInfo` hands back. With
+ * it, a diagnostic names the line of the note; without it — Obsidian returns
+ * `null` in several circumstances — the block's own numbering is kept and the
+ * wording says so.
  */
 export async function render(
   source: string,
   el: HTMLElement,
   settings: SkissSettings,
+  lineStart?: number,
 ): Promise<void> {
-  const { output, diagnostics } = compile(source, { target: 'mermaid' });
-  // `compile` hands back text, not a document, so the doubts and the
-  // descriptions are read off a second pass. The diagram keeps coming from
-  // `compile` with `notes` off, which is what leaves it unchanged.
-  const doc = resolve(parse(source));
-
-  if (output.trim() === EMPTY_DIAGRAM) {
+  let doc: Document;
+  let output: string;
+  try {
+    // One pass: the diagram, the diagnostics, the doubts and the descriptions
+    // all come from the document this resolves, so they cannot disagree.
+    doc = resolve(parse(source));
+    output = toMermaid(doc);
+  } catch (error) {
+    // "Never an empty block or a thrown exception" cannot rest on the package
+    // never throwing, so a failure is reported where diagnostics are.
     appendDiv(el, 'skiss-placeholder').textContent = PLACEHOLDER;
-    appendBelowDiagram(el, diagnostics, doc, settings);
+    appendDiv(appendDiv(el, 'skiss-diagnostics')).textContent =
+      `${COMPILE_FAILED}: ${messageOf(error)}`;
+    return;
+  }
+
+  const numbering = numberingFrom(lineStart);
+
+  // A document with no class has nothing to draw, which is the question being
+  // asked — not what the empty diagram happens to be spelled as.
+  if (doc.classes.length === 0) {
+    appendDiv(el, 'skiss-placeholder').textContent = PLACEHOLDER;
+    appendBelowDiagram(el, doc, settings, numbering);
     return;
   }
 
   // Everything below the diagram is appended before Mermaid is awaited, so it
   // settles under the diagram instead of sitting above it until it is drawn.
   const diagramEl = appendDiv(el, 'skiss-diagram');
-  appendBelowDiagram(el, diagnostics, doc, settings);
+  appendBelowDiagram(el, doc, settings, numbering);
   await draw(diagramEl, output);
+}
+
+/** The first line of a block body is the line after its opening fence. */
+function numberingFrom(lineStart: number | undefined): Numbering {
+  return lineStart === undefined
+    ? { offset: 0, scope: 'block' }
+    : { offset: lineStart + 1, scope: 'note' };
 }
 
 function appendBelowDiagram(
   el: HTMLElement,
-  diagnostics: readonly Diagnostic[],
   doc: Document,
   settings: SkissSettings,
+  numbering: Numbering,
 ): void {
+  const diagnostics = doc.diagnostics;
   // An error is never hidden, so hiding the warnings leaves the errors behind
   // rather than dropping the list.
-  appendDiagnostics(el, settings.showWarnings ? diagnostics : diagnostics.filter(isError));
+  appendDiagnostics(
+    el,
+    settings.showWarnings ? diagnostics : diagnostics.filter(isError),
+    numbering,
+  );
   appendList(
     el,
     'skiss-questions',
@@ -128,21 +169,15 @@ function appendList(
   }
 }
 
-function appendDiagnostics(el: HTMLElement, diagnostics: readonly Diagnostic[]): void {
+function appendDiagnostics(
+  el: HTMLElement,
+  diagnostics: readonly Diagnostic[],
+  { offset, scope }: Numbering,
+): void {
   const diagnosticsEl = appendDiv(el, 'skiss-diagnostics');
   for (const diagnostic of diagnostics) {
-    appendDiv(diagnosticsEl).textContent = describe(diagnostic);
+    appendDiv(diagnosticsEl).textContent = describe(diagnostic, diagnostic.line + offset, scope);
   }
-}
-
-/**
- * A note is read, not compiled: `5:13: warning W_UNDECLARED_CLASS …` tells a
- * reader neither that `5` is a line nor what the code means. The column and the
- * code are dropped, the line is spelled out, and an error says so, which is
- * what sets it apart from a warning in a list of plain text.
- */
-function describe({ severity, line, message }: Diagnostic): string {
-  return severity === 'error' ? `Error, line ${line}: ${message}` : `Line ${line}: ${message}`;
 }
 
 async function draw(diagramEl: HTMLElement, output: string): Promise<void> {
@@ -161,11 +196,21 @@ async function draw(diagramEl: HTMLElement, output: string): Promise<void> {
 
 /**
  * Obsidian's guidelines rule out assigning markup as a string, so the SVG
- * Mermaid returns reaches the container as parsed nodes. It is parsed as HTML,
- * which is the parser `innerHTML` used: Mermaid serialises its SVG from an HTML
- * document, so it may carry HTML entities and unclosed tags that a strict XML
- * parse would reject. The HTML parser never throws; a document whose first
- * element is not an `<svg>` is a failed diagram like any other.
+ * Mermaid returns reaches the container as parsed nodes. That is what this
+ * protects against: assigning markup runs a script the moment it is inserted,
+ * and the guideline checker looks for the assignment, not for the markup.
+ *
+ * It is not a sanitizer. Nodes parsed here carry their attributes into the live
+ * document, so an `onload` or an `onerror` among them would fire on insertion
+ * exactly as it would through `innerHTML`. The SVG is trusted because of where
+ * it comes from: Obsidian's own Mermaid, drawing text this plugin generated
+ * locally from the note, and Mermaid runs its own DOMPurify pass over it.
+ *
+ * It is parsed as HTML, which is the parser `innerHTML` used: Mermaid
+ * serialises its SVG from an HTML document, so it may carry HTML entities and
+ * unclosed tags that a strict XML parse would reject. The HTML parser never
+ * throws; a document whose first element is not an `<svg>` is a failed diagram
+ * like any other.
  */
 function parseSvg(svg: string): Element {
   const parsed = new DOMParser().parseFromString(svg, 'text/html');

@@ -1,5 +1,6 @@
-import { type CompileResult, compile, type Diagnostic, formatDiagnostic } from '@eriknaslund/skiss';
-import { Notice, type TFile, type Vault } from 'obsidian';
+import { type CompileResult, compile, type Diagnostic } from '@eriknaslund/skiss';
+import { type MarkdownView, Notice, normalizePath, type TFile, type Vault } from 'obsidian';
+import { describe } from './diagnostics';
 
 /** The info string of a block these commands export, and the fence it opens. */
 const LANGUAGE = 'skiss';
@@ -31,7 +32,9 @@ const DIAGNOSTICS_IN_NOTICE = 3;
 interface Fence {
   /** The run of backticks or tildes that opened the block. */
   marker: string;
-  /** Leading spaces on the opening fence, stripped from every body line. */
+  /** Blockquote markers the opening fence carried, stripped from every line. */
+  quotes: number;
+  /** Indentation of the opening fence inside the quote, stripped from every body line. */
   indent: number;
   skiss: boolean;
 }
@@ -63,7 +66,7 @@ export function skissBlocks(text: string): Block[] {
     const start = index;
     const body: string[] = [];
     while (index < lines.length && !closesFence(lines[index] ?? '', fence)) {
-      body.push(dedent(lines[index] ?? '', fence.indent));
+      body.push(bodyLine(lines[index] ?? '', fence));
       index += 1;
     }
     index += 1;
@@ -108,11 +111,16 @@ export function schemaNameFor(notePath: string): string {
   return basenameOf(notePath);
 }
 
-/** `<note>.linkml.yaml` or `<note>.mmd`, in the note's own folder. */
+/**
+ * `<note>.linkml.yaml` or `<note>.mmd`, in the note's own folder. The path is
+ * built here rather than taken from the user, and the guidelines ask for
+ * `normalizePath` on both: it is what makes a folder or a note name carrying a
+ * non-breaking space or a decomposed accent find the file the vault holds.
+ */
 export function outputPathFor(notePath: string, format: Format): string {
   const slash = notePath.lastIndexOf('/');
   const folder = slash === -1 ? '' : notePath.slice(0, slash + 1);
-  return `${folder}${basenameOf(notePath)}${FORMATS[format].suffix}`;
+  return normalizePath(`${folder}${basenameOf(notePath)}${FORMATS[format].suffix}`);
 }
 
 /**
@@ -138,9 +146,10 @@ export async function exportNote(
   file: TFile,
   format: Format,
   sink: Sink,
+  view?: MarkdownView,
 ): Promise<void> {
   try {
-    const blocks = skissBlocks(await vault.read(file));
+    const blocks = skissBlocks(await noteTextOf(vault, file, view));
     if (blocks.length === 0) {
       new Notice(NO_BLOCKS);
       return;
@@ -162,6 +171,27 @@ export async function exportNote(
   }
 }
 
+/**
+ * The note as the user sees it. Obsidian writes the editor to disk on a
+ * debounce, so the file lags the buffer by a moment: an export run straight
+ * after typing would miss the last line. The buffer is read when the active
+ * view holds this very note, and the file otherwise.
+ */
+function noteTextOf(vault: Vault, file: TFile, view: MarkdownView | undefined): Promise<string> {
+  if (view !== undefined && view.file?.path === file.path) {
+    return Promise.resolve(view.editor.getValue());
+  }
+  return vault.read(file);
+}
+
+/**
+ * Always the note's own sibling path, never anything else: re-exporting a note
+ * refreshes the file it wrote last time. `process` rather than `modify`, as the
+ * guidelines ask for a file the user is not editing — it is atomic against
+ * another plugin writing the same file — and the notice says which of the two
+ * happened, because creating a file and overwriting one are not the same thing
+ * to whoever hand-edited it.
+ */
 async function writeNextToNote(
   vault: Vault,
   notePath: string,
@@ -172,10 +202,11 @@ async function writeNextToNote(
   const existing = vault.getFileByPath(path);
   if (existing === null) {
     await vault.create(path, output);
+    new Notice(`Created ${path}`);
   } else {
-    await vault.modify(existing, output);
+    await vault.process(existing, () => output);
+    new Notice(`Updated ${path}`);
   }
-  new Notice(`Exported to ${path}`);
 }
 
 async function copyToClipboard(format: Format, output: string): Promise<void> {
@@ -188,7 +219,7 @@ function diagnosticsMessage(blocks: Block[], diagnostics: Diagnostic[]): string 
   const heading = `${count} diagnostic${count === 1 ? '' : 's'}`;
   const shown = diagnostics
     .slice(0, DIAGNOSTICS_IN_NOTICE)
-    .map((d) => formatDiagnostic({ ...d, line: noteLineOf(blocks, d.line) }));
+    .map((d) => describe(d, noteLineOf(blocks, d.line), 'note'));
   return [heading, ...shown].join('\n');
 }
 
@@ -196,8 +227,40 @@ function lineCountOf(body: string): number {
   return body.split('\n').length;
 }
 
+/** A blockquote marker, as Obsidian's own renderer reads one. */
+const QUOTE_MARKER = /^ {0,3}> ?/;
+
+/** How deep a quote may nest before the opening fence of a block is looked for. */
+const ANY_DEPTH = Number.POSITIVE_INFINITY;
+
+/**
+ * A line with up to `limit` blockquote markers taken off the front. Obsidian
+ * renders a fence inside a blockquote through the same processor, so the `>`
+ * every line of such a block carries belongs to the quote, not to the block.
+ * A body line is unquoted only as deeply as its opening fence was, so a `>` the
+ * user wrote inside the block is left where it is.
+ */
+function unquote(line: string, limit: number): { quotes: number; text: string } {
+  let text = line;
+  let quotes = 0;
+  while (quotes < limit) {
+    const match = QUOTE_MARKER.exec(text);
+    if (match === null) {
+      break;
+    }
+    quotes += 1;
+    text = text.slice(match[0].length);
+  }
+  return { quotes, text };
+}
+
 function openingFence(line: string): Fence | undefined {
-  const match = /^( {0,3})(`{3,}|~{3,})(.*)$/.exec(line);
+  const { quotes, text } = unquote(line, ANY_DEPTH);
+  // Not the 0-3 spaces of a top-level fence: a fence inside a list item is
+  // indented relative to its marker, as deeply as the list nests, and Obsidian
+  // renders that through this same processor. Its own indentation is the
+  // baseline the body is measured against.
+  const match = /^( *)(`{3,}|~{3,})(.*)$/.exec(text);
   if (match === null) {
     return undefined;
   }
@@ -210,6 +273,7 @@ function openingFence(line: string): Fence | undefined {
 
   return {
     marker,
+    quotes,
     indent: indent.length,
     // The first word only, so that `skiss title=Foo` exports and `skisser` does not.
     skiss: info.trim().split(/\s+/)[0] === LANGUAGE,
@@ -217,13 +281,19 @@ function openingFence(line: string): Fence | undefined {
 }
 
 function closesFence(line: string, fence: Fence): boolean {
-  const match = /^ {0,3}(`{3,}|~{3,})[ \t]*$/.exec(line);
+  // The closing fence of an indented block carries that indentation too.
+  const match = /^ *(`{3,}|~{3,})[ \t]*$/.exec(unquote(line, fence.quotes).text);
   if (match === null) {
     return false;
   }
 
   const marker = match[1] ?? '';
   return marker[0] === fence.marker[0] && marker.length >= fence.marker.length;
+}
+
+/** One line of a block's body, with the quote and the fence's indentation off. */
+function bodyLine(line: string, fence: Fence): string {
+  return dedent(unquote(line, fence.quotes).text, fence.indent);
 }
 
 function dedent(line: string, indent: number): string {

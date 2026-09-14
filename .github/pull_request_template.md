@@ -27,4 +27,3 @@ Closes #
 
 - [ ] `pnpm verify` green locally
 - [ ] Checked in a vault (Reading view and Live Preview)
-- [ ] Gates not yet active (bootstrap only):

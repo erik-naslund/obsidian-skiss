@@ -1,0 +1,13 @@
+# The release workflow pins its actions by SHA (see .github/workflows/release.yml);
+# these are the pull requests that keep both those pins and the toolchain current.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
