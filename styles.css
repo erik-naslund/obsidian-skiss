@@ -1,4 +1,4 @@
-/* The diagnostics the skiss compiler reports, listed above the diagram. */
+/* The diagnostics the skiss compiler reports, listed below the diagram. */
 .skiss-diagnostics {
   font-family: var(--font-monospace);
   font-size: var(--font-ui-smaller);

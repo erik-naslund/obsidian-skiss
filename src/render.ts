@@ -1,4 +1,4 @@
-import { compile, formatDiagnostic } from '@eriknaslund/skiss';
+import { compile, type Diagnostic } from '@eriknaslund/skiss';
 import { loadMermaid } from 'obsidian';
 
 /** `loadMermaid()` is untyped; this is the one call the plugin makes into it. */
@@ -21,23 +21,43 @@ const SVG_UNPARSEABLE = 'Mermaid returned an SVG that could not be parsed';
 let blocksRendered = 0;
 
 /**
- * Compiles one `skiss` block and fills `el` with its diagnostics and its
- * diagram. Whatever the source, it renders something and throws nothing.
+ * Compiles one `skiss` block and fills `el` with its diagram and its
+ * diagnostics. Whatever the source, it renders something and throws nothing.
  */
 export async function render(source: string, el: HTMLElement): Promise<void> {
   const { output, diagnostics } = compile(source, { target: 'mermaid' });
 
-  const diagnosticsEl = appendDiv(el, 'skiss-diagnostics');
-  for (const diagnostic of diagnostics) {
-    appendDiv(diagnosticsEl).textContent = formatDiagnostic(diagnostic);
-  }
-
   if (output.trim() === EMPTY_DIAGRAM) {
     appendDiv(el, 'skiss-placeholder').textContent = PLACEHOLDER;
+    appendDiagnostics(el, diagnostics);
     return;
   }
 
+  // Both containers are appended before Mermaid is awaited, so the diagnostics
+  // settle below the diagram instead of appearing above it until it is drawn.
   const diagramEl = appendDiv(el, 'skiss-diagram');
+  appendDiagnostics(el, diagnostics);
+  await draw(diagramEl, output);
+}
+
+function appendDiagnostics(el: HTMLElement, diagnostics: readonly Diagnostic[]): void {
+  const diagnosticsEl = appendDiv(el, 'skiss-diagnostics');
+  for (const diagnostic of diagnostics) {
+    appendDiv(diagnosticsEl).textContent = describe(diagnostic);
+  }
+}
+
+/**
+ * A note is read, not compiled: `5:13: warning W_UNDECLARED_CLASS …` tells a
+ * reader neither that `5` is a line nor what the code means. The column and the
+ * code are dropped, the line is spelled out, and an error says so, which is
+ * what sets it apart from a warning in a list of plain text.
+ */
+function describe({ severity, line, message }: Diagnostic): string {
+  return severity === 'error' ? `Error, line ${line}: ${message}` : `Line ${line}: ${message}`;
+}
+
+async function draw(diagramEl: HTMLElement, output: string): Promise<void> {
   blocksRendered += 1;
   const id = `skiss-diagram-${blocksRendered}`;
 

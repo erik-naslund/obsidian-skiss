@@ -22,8 +22,8 @@ obsidian-skiss/
 ## What the plugin does, in order
 
 1. **`registerMarkdownCodeBlockProcessor('skiss', ...)`.** For each block: `parse`, `resolve`, `toMermaid` from the `skiss` package, then render.
-2. **Render diagnostics first.** Errors and warnings from the document are listed above the diagram as plain text, one per line, with the line number. An empty block or a thrown exception is never the result.
-3. **Render the diagram** by handing the Mermaid text to Obsidian's own Mermaid, obtained with `loadMermaid()`. The plugin bundles no copy of Mermaid ([ADR 0002](adr/0002-obsidian-bundled-mermaid.md)).
+2. **Render the diagram first** by handing the Mermaid text to Obsidian's own Mermaid, obtained with `loadMermaid()`. The plugin bundles no copy of Mermaid ([ADR 0002](adr/0002-obsidian-bundled-mermaid.md)). A block with nothing to draw gets a placeholder in the diagram's place instead.
+3. **Render the diagnostics after it.** Errors and warnings from the document are listed below the diagram as plain text, one per line, worded for a reader of the note rather than for a compiler: `Line 5: class \`Validator\` is not declared` for a warning and `Error, line 3: A colon needs a type after it` for an error. No column, no diagnostic code. An empty block or a thrown exception is never the result.
 4. **One command, "Export to LinkML".** Finds the `skiss` blocks in the active note, compiles them with `toLinkML` and `serialize`, and writes `<note>.linkml.yaml` next to the note via the vault API. Diagnostics go to a notice.
 
 ## Edges
