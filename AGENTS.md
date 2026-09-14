@@ -76,11 +76,6 @@ What no script can verify: that the block renders in a real vault. Every
 PR that changes rendering or the export command is checked by hand in a
 vault and the PR carries a screenshot (Section 7).
 
-> **Bootstrap note:** `pnpm verify`, the Biome config, the esbuild config,
-> the CI workflow and the release workflow are created during repository
-> bootstrap. Until a gate's tooling exists, a PR states which gates are not
-> yet active instead of being blocked by them.
-
 ---
 
 ## 5. Architecture decisions (ADRs)

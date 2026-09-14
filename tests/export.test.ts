@@ -1,5 +1,6 @@
-import { compile, formatDiagnostic } from '@eriknaslund/skiss';
+import { compile } from '@eriknaslund/skiss';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe as describeDiagnostic } from '../src/diagnostics';
 import {
   concatenateBlocks,
   exportNote,
@@ -10,9 +11,9 @@ import {
   schemaNameFor,
   skissBlocks,
 } from '../src/export';
-import { asFile, asVault, StubVault } from './stub-vault';
+import { asFile, asVault, asView, StubVault, StubView } from './stub-vault';
 
-const { Notice, notices } = vi.hoisted(() => {
+const { Notice, normalizePath, notices } = vi.hoisted(() => {
   const notices: string[] = [];
   return {
     notices,
@@ -21,10 +22,22 @@ const { Notice, notices } = vi.hoisted(() => {
         notices.push(message);
       }
     },
+    /**
+     * `normalizePath` is Obsidian's own; the stand-in does what the export
+     * relies on — one separator, no leading or trailing one, no non-breaking
+     * space and NFC — so a path built from a decomposed note name lands where
+     * the vault holds it.
+     */
+    normalizePath: (path: string): string =>
+      path
+        .replace(/[\\/]+/g, '/')
+        .replace(/^\/+|\/+$/g, '')
+        .replace(/\u00a0/g, ' ')
+        .normalize('NFC'),
   };
 });
 
-vi.mock('obsidian', () => ({ Notice }));
+vi.mock('obsidian', () => ({ Notice, normalizePath }));
 
 // `navigator.clipboard` is a browser global inside Obsidian; a test run has to
 // supply one.
@@ -130,6 +143,36 @@ describe('skissBlocks', () => {
     expect(bodiesOf(note)).toEqual(['Character\n  id*']);
   });
 
+  it('reads a fence inside a blockquote, markers and all', () => {
+    const note = '> A quote:\n>\n> ```skiss\n> Character\n>   id*\n> ```\n';
+
+    expect(bodiesOf(note)).toEqual(['Character\n  id*']);
+  });
+
+  it('reads a fence inside a nested blockquote', () => {
+    const note = '> > ```skiss\n> > Character\n> > ```\n';
+
+    expect(bodiesOf(note)).toEqual(['Character']);
+  });
+
+  it('leaves a > the block itself carries where it is', () => {
+    // The fence is not quoted, so nothing on its body lines is a quote marker.
+    expect(bodiesOf('```skiss\n> Character\n```\n')).toEqual(['> Character']);
+  });
+
+  it('reads a fence indented past three spaces inside a nested list', () => {
+    const note =
+      '- A list item:\n  - Nested:\n\n      ```skiss\n      Character\n        id*\n      ```\n';
+
+    expect(bodiesOf(note)).toEqual(['Character\n  id*']);
+  });
+
+  it('counts the note lines of a quoted block from the note', () => {
+    const note = '# Title\n\n> ```skiss\n> Character\n> ```\n';
+
+    expect(skissBlocks(note)).toEqual([{ body: 'Character', line: 4 }]);
+  });
+
   it('runs an unterminated fence to the end of the note', () => {
     expect(bodiesOf('```skiss\nCharacter\n  id*\n')).toEqual(['Character\n  id*\n']);
   });
@@ -215,6 +258,17 @@ describe('the schema name and the file name', () => {
     expect(outputPathFor(path, 'linkml')).toBe(linkmlPath);
     expect(outputPathFor(path, 'mermaid')).toBe(mermaidPath);
   });
+
+  it.each([
+    ['a doubled separator', 'Sketches//Note.md', 'Sketches/Note.linkml.yaml'],
+    ['a leading separator', '/Sketches/Note.md', 'Sketches/Note.linkml.yaml'],
+    // A non-breaking space is what a note title pasted from elsewhere carries.
+    ['a non-breaking space', 'A\u00a0folder/Note.md', 'A folder/Note.linkml.yaml'],
+    // The same name, decomposed: NFC is what the vault holds it under.
+    ['a decomposed accent', 'Sketches/A\u0301rkiv.md', 'Sketches/\u00c1rkiv.linkml.yaml'],
+  ])('normalizes the path it builds: %s', (_name, notePath, expected) => {
+    expect(outputPathFor(notePath, 'linkml')).toBe(expected);
+  });
 });
 
 describe('the file sink', () => {
@@ -225,18 +279,29 @@ describe('the file sink', () => {
 
     expect(vault.created).toEqual(['Sketches/My Notes.linkml.yaml']);
     expect(vault.contentOf('Sketches/My Notes.linkml.yaml')).toContain('name: my_notes');
-    expect(notices[0]).toBe('Exported to Sketches/My Notes.linkml.yaml');
+    expect(notices[0]).toBe('Created Sketches/My Notes.linkml.yaml');
   });
 
-  it('overwrites an export that is already there', async () => {
+  it('refreshes an export that is already there, through process, and says so', async () => {
     const vault = new StubVault();
     vault.add('Note.linkml.yaml', 'stale\n');
 
     await runExport(vault, 'Note.md', noteWith(CHARACTER));
 
     expect(vault.created).toEqual([]);
-    expect(vault.modified).toEqual(['Note.linkml.yaml']);
+    expect(vault.processed).toEqual(['Note.linkml.yaml']);
     expect(vault.contentOf('Note.linkml.yaml')).not.toContain('stale');
+    expect(notices[0]).toBe('Updated Note.linkml.yaml');
+  });
+
+  it("writes to the note's own sibling path and nothing else", async () => {
+    const vault = new StubVault();
+    const bystander = vault.add('Sketches/Other.linkml.yaml', 'not mine\n');
+
+    await runExport(vault, 'Sketches/Note.md', noteWith(CHARACTER));
+
+    expect(vault.created).toEqual(['Sketches/Note.linkml.yaml']);
+    expect(bystander.content).toBe('not mine\n');
   });
 
   it('writes nothing for a note without a skiss block', async () => {
@@ -245,7 +310,7 @@ describe('the file sink', () => {
     await runExport(vault, 'Note.md', '# Title\n\nProse only.\n');
 
     expect(vault.created).toEqual([]);
-    expect(vault.modified).toEqual([]);
+    expect(vault.processed).toEqual([]);
     expect(vault.getFileByPath('Note.linkml.yaml')).toBeNull();
     expect(notices).toEqual(['No skiss blocks in this note']);
   });
@@ -262,12 +327,12 @@ describe('the file sink', () => {
       schemaName: 'Note',
     }).diagnostics;
     expect(diagnostics.length).toBe(4);
-    expect(notices[0]).toBe('Exported to Note.linkml.yaml');
+    expect(notices[0]).toBe('Created Note.linkml.yaml');
     // The only block's body starts on line 2 of the note, so every line shifts by one.
     expect(notices[1]).toBe(
       [
         '4 diagnostics',
-        ...diagnostics.slice(0, 3).map((d) => formatDiagnostic({ ...d, line: d.line + 1 })),
+        ...diagnostics.slice(0, 3).map((d) => describeDiagnostic(d, d.line + 1, 'note')),
       ].join('\n'),
     );
   });
@@ -284,9 +349,10 @@ describe('the file sink', () => {
     // `ruler: Ruler` is line 5 of the concatenated source and line 14 of the note.
     expect(diagnostics.map((d) => d.line)).toEqual([5]);
     expect(notices[1]).toBe(
-      ['1 diagnostic', ...diagnostics.map((d) => formatDiagnostic({ ...d, line: 14 }))].join('\n'),
+      ['1 diagnostic', ...diagnostics.map((d) => describeDiagnostic(d, 14, 'note'))].join('\n'),
     );
-    expect(notices[1]).toContain('14:');
+    // The wording the block itself uses, at the note's own line, not `14:13:`.
+    expect(notices[1]).toContain('Line 14: ');
   });
 
   it('shows no diagnostics notice when the note is clean', async () => {
@@ -294,7 +360,7 @@ describe('the file sink', () => {
 
     await runExport(vault, 'Note.md', noteWith(`${CHARACTER}\n${PLANET}`));
 
-    expect(notices).toEqual(['Exported to Note.linkml.yaml']);
+    expect(notices).toEqual(['Created Note.linkml.yaml']);
   });
 
   it('reports a failed write instead of throwing', async () => {
@@ -319,18 +385,19 @@ describe('the file sink', () => {
     // One diagram for the note, not one per block.
     expect(expected).toContain('Character');
     expect(expected).toContain('Planet');
-    expect(notices[0]).toBe('Exported to Sketches/My Notes.mmd');
+    expect(notices[0]).toBe('Created Sketches/My Notes.mmd');
   });
 
-  it('overwrites a diagram that is already there', async () => {
+  it('refreshes a diagram that is already there', async () => {
     const vault = new StubVault();
     vault.add('Note.mmd', 'stale\n');
 
     await runExport(vault, 'Note.md', noteWith(CHARACTER), 'mermaid', 'file');
 
     expect(vault.created).toEqual([]);
-    expect(vault.modified).toEqual(['Note.mmd']);
+    expect(vault.processed).toEqual(['Note.mmd']);
     expect(vault.contentOf('Note.mmd')).not.toContain('stale');
+    expect(notices[0]).toBe('Updated Note.mmd');
   });
 
   it('leaves the clipboard alone', async () => {
@@ -339,6 +406,39 @@ describe('the file sink', () => {
     await runExport(vault, 'Note.md', noteWith(CHARACTER));
 
     expect(writeText).not.toHaveBeenCalled();
+  });
+});
+
+describe('what the export reads', () => {
+  it('reads the editor buffer of the active view, not the file on disk', async () => {
+    const vault = new StubVault();
+    const file = vault.add('Note.md', noteWith('Character\n  id*\n'));
+    // What the user has typed since Obsidian last wrote the file.
+    const view = new StubView(file, noteWith('Character\n  id*\n  name\n'));
+
+    await exportNote(asVault(vault), asFile(file), 'linkml', 'file', asView(view));
+
+    expect(vault.contentOf('Note.linkml.yaml')).toContain('name');
+  });
+
+  it('reads the file when the active view holds another note', async () => {
+    const vault = new StubVault();
+    const file = vault.add('Note.md', noteWith('Character\n  id*\n'));
+    const other = vault.add('Other.md', noteWith('Planet\n  id*\n'));
+
+    await exportNote(asVault(vault), asFile(file), 'linkml', 'file', asView(new StubView(other)));
+
+    expect(vault.contentOf('Note.linkml.yaml')).toContain('Character');
+    expect(vault.contentOf('Note.linkml.yaml')).not.toContain('Planet');
+  });
+
+  it('reads the file when no view is handed in', async () => {
+    const vault = new StubVault();
+    const file = vault.add('Note.md', noteWith('Character\n  id*\n'));
+
+    await exportNote(asVault(vault), asFile(file), 'linkml', 'file');
+
+    expect(vault.contentOf('Note.linkml.yaml')).toContain('Character');
   });
 });
 
@@ -377,7 +477,7 @@ describe('the clipboard sink', () => {
     await runExport(vault, 'Note.md', noteWith(CHARACTER), format, 'clipboard');
 
     expect(vault.created).toEqual([]);
-    expect(vault.modified).toEqual([]);
+    expect(vault.processed).toEqual([]);
     expect(vault.getFileByPath(path)).toBeNull();
   });
 
@@ -427,9 +527,7 @@ describe('what both sinks and both formats do', () => {
       // whichever format the note was compiled to.
       expect(diagnostics.map((d) => d.line)).toEqual([5]);
       expect(notices[1]).toBe(
-        ['1 diagnostic', ...diagnostics.map((d) => formatDiagnostic({ ...d, line: 14 }))].join(
-          '\n',
-        ),
+        ['1 diagnostic', ...diagnostics.map((d) => describeDiagnostic(d, 14, 'note'))].join('\n'),
       );
     },
   );

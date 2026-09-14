@@ -1,9 +1,10 @@
-import type { TFile, Vault } from 'obsidian';
+import type { MarkdownView, TFile, Vault } from 'obsidian';
 
 /**
  * The vault `export.ts` touches, and no more: read a note, look a path up,
- * create or overwrite a file. Obsidian's API cannot run headless, so the
- * command is tested against this double and checked by hand in a vault.
+ * create a file or process one that is there. Obsidian's API cannot run
+ * headless, so the command is tested against this double and checked by hand in
+ * a vault.
  */
 export class StubFile {
   content: string;
@@ -26,7 +27,7 @@ export class StubFile {
 export class StubVault {
   readonly files = new Map<string, StubFile>();
   readonly created: string[] = [];
-  readonly modified: string[] = [];
+  readonly processed: string[] = [];
 
   add(path: string, content = ''): StubFile {
     const file = new StubFile(path, content);
@@ -47,15 +48,31 @@ export class StubVault {
     return Promise.resolve(this.add(path, data));
   }
 
-  modify(file: StubFile, data: string): Promise<void> {
-    this.modified.push(file.path);
-    file.content = data;
-    return Promise.resolve();
+  /** `Vault.process` hands the current contents in and writes what it returns. */
+  process(file: StubFile, fn: (data: string) => string): Promise<string> {
+    this.processed.push(file.path);
+    file.content = fn(file.content);
+    return Promise.resolve(file.content);
   }
 
   contentOf(path: string): string | undefined {
     return this.files.get(path)?.content;
   }
+}
+
+/**
+ * The markdown view an export command is handed: the note it holds and the
+ * editor buffer the export reads instead of the file on disk.
+ */
+export class StubView {
+  constructor(
+    readonly file: StubFile | null,
+    private readonly buffer: string | null = null,
+  ) {}
+
+  readonly editor = {
+    getValue: (): string => this.buffer ?? this.file?.content ?? '',
+  };
 }
 
 /** `exportToLinkML` takes Obsidian's own types; the doubles stand in for them. */
@@ -65,4 +82,8 @@ export function asVault(vault: StubVault): Vault {
 
 export function asFile(file: StubFile): TFile {
   return file as unknown as TFile;
+}
+
+export function asView(view: StubView): MarkdownView {
+  return view as unknown as MarkdownView;
 }

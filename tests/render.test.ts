@@ -4,12 +4,30 @@ import { render } from '../src/render';
 import type { SkissSettings } from '../src/settings';
 import { asContainer, StubDOMParser, StubElement } from './stub-dom';
 
-const { loadMermaid, mermaidRender } = vi.hoisted(() => {
+const { failParse, loadMermaid, mermaidRender } = vi.hoisted(() => {
   const mermaidRender = vi.fn(async (id: string, _text: string) => ({ svg: `<svg id="${id}"/>` }));
-  return { loadMermaid: vi.fn(async () => ({ render: mermaidRender })), mermaidRender };
+  return {
+    loadMermaid: vi.fn(async () => ({ render: mermaidRender })),
+    mermaidRender,
+    /** Nothing the fuzzer found makes `parse` throw; this is how the guard is reached. */
+    failParse: { message: null as string | null },
+  };
 });
 
 vi.mock('obsidian', () => ({ loadMermaid }));
+
+vi.mock('@eriknaslund/skiss', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@eriknaslund/skiss')>();
+  return {
+    ...actual,
+    parse: (source: string) => {
+      if (failParse.message !== null) {
+        throw new Error(failParse.message);
+      }
+      return actual.parse(source);
+    },
+  };
+});
 
 // `DOMParser` is a browser global inside Obsidian; a test run has to supply one.
 vi.stubGlobal('DOMParser', StubDOMParser);
@@ -53,14 +71,19 @@ Planet   ? do moons get their own class
 // The settings a reader starts with: everything the block carries is shown.
 const ALL_ON: SkissSettings = { showWarnings: true, showQuestions: true, showComments: true };
 
-async function renderInto(source: string, settings: SkissSettings = ALL_ON): Promise<StubElement> {
+async function renderInto(
+  source: string,
+  settings: SkissSettings = ALL_ON,
+  lineStart?: number,
+): Promise<StubElement> {
   const el = new StubElement();
-  await render(source, asContainer(el), settings);
+  await render(source, asContainer(el), settings, lineStart);
   return el;
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
+  failParse.message = null;
 });
 
 describe('render', () => {
@@ -73,11 +96,33 @@ describe('render', () => {
   });
 
   it('words each diagnostic for a note, with no column and no code', async () => {
+    // The block opens on line 10 of the note, 0-based as Obsidian counts it, so
+    // its body starts on the note's twelfth line and line 3 of the block is 14.
+    const el = await renderInto(WITH_WARNING_AND_ERROR, ALL_ON, 10);
+
+    expect(el.find('skiss-diagnostics')?.lines()).toEqual([
+      'Line 14: class `Ferson` is not declared',
+      'Error, line 15: A line at column 0 must start with a class name or `#` for a comment',
+    ]);
+  });
+
+  it('counts the lines of a block that opens the note from the top of the note', async () => {
+    const el = await renderInto(WITH_WARNING_AND_ERROR, ALL_ON, 0);
+
+    expect(el.find('skiss-diagnostics')?.lines()).toEqual([
+      'Line 4: class `Ferson` is not declared',
+      'Error, line 5: A line at column 0 must start with a class name or `#` for a comment',
+    ]);
+  });
+
+  it('says so when Obsidian will not say where the block sits', async () => {
+    // `getSectionInfo` returns null in several circumstances; a block-relative
+    // number worded as a note line would send the reader to the wrong line.
     const el = await renderInto(WITH_WARNING_AND_ERROR);
 
     expect(el.find('skiss-diagnostics')?.lines()).toEqual([
-      'Line 3: class `Ferson` is not declared',
-      'Error, line 4: A line at column 0 must start with a class name or `#` for a comment',
+      'Block line 3: class `Ferson` is not declared',
+      'Error, block line 4: A line at column 0 must start with a class name or `#` for a comment',
     ]);
   });
 
@@ -87,9 +132,9 @@ describe('render', () => {
     const { diagnostics } = compile(WITH_TYPO, { target: 'mermaid' });
     expect(diagnostics.length).toBeGreaterThan(0);
     expect(el.find('skiss-diagnostics')?.lines()).toHaveLength(diagnostics.length);
-    // The line number a reader counts inside the block, never `line:col`.
+    // A line number spelled out, never `line:col`.
     for (const line of el.find('skiss-diagnostics')?.lines() ?? []) {
-      expect(line).toMatch(/^(Error, line|Line) \d+: /);
+      expect(line).toMatch(/^(Error, block line|Block line) \d+: /);
     }
   });
 
@@ -181,7 +226,7 @@ describe('render', () => {
     const el = await renderInto('!!!\n');
 
     expect(el.find('skiss-diagnostics')?.lines()).toEqual([
-      'Error, line 1: A line at column 0 must start with a class name or `#` for a comment',
+      'Error, block line 1: A line at column 0 must start with a class name or `#` for a comment',
     ]);
     expect(el.find('skiss-placeholder')?.textContent).toBe('Nothing to draw yet');
     expect(mermaidRender).not.toHaveBeenCalled();
@@ -221,6 +266,27 @@ describe('render', () => {
     ]);
   });
 
+  it('reports a compiler that throws instead of leaving the block empty', async () => {
+    failParse.message = 'the parser exploded';
+
+    const el = await renderInto(EXAMPLE);
+
+    expect(el.find('skiss-placeholder')?.textContent).toBe('Nothing to draw yet');
+    expect(el.find('skiss-diagnostics')?.lines()).toEqual([
+      'Block could not be compiled: the parser exploded',
+    ]);
+    expect(mermaidRender).not.toHaveBeenCalled();
+  });
+
+  it('parses the source once', async () => {
+    const parse = vi.spyOn(await import('@eriknaslund/skiss'), 'parse');
+
+    await renderInto(EXAMPLE);
+
+    expect(parse).toHaveBeenCalledTimes(1);
+    parse.mockRestore();
+  });
+
   it('gives every block its own Mermaid id', async () => {
     await renderInto(EXAMPLE);
     await renderInto(EXAMPLE);
@@ -240,7 +306,7 @@ describe('what the settings hide', () => {
     const el = await renderInto(WITH_WARNING_AND_ERROR, without('showWarnings'));
 
     expect(el.find('skiss-diagnostics')?.lines()).toEqual([
-      'Error, line 4: A line at column 0 must start with a class name or `#` for a comment',
+      'Error, block line 4: A line at column 0 must start with a class name or `#` for a comment',
     ]);
   });
 
