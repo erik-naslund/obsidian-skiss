@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "node esbuild.config.mjs",
     "build": "node esbuild.config.mjs production",
-    "lint": "biome check",
+    "lint": "biome check --error-on-warnings",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build"
