@@ -135,9 +135,17 @@ follows `.github/pull_request_template.md`:
 
 ## 9. When unsure
 
-Do **not** invent. Write the question in the issue, surface it in your
-reply and the PR description, and pause that thread until it is answered.
+Do **not** invent, and do **not** stop to ask: nobody watches a worker
+session, and a turn that ends on a question shows up as a question to the
+product owner. Pick the reading closest to the issue text, record it on
+the PR under **Assumptions made** as a vetoable working default (what you
+chose, the alternative, why), and continue. Stop only when no default
+could make the work useful, and say exactly that in the PR description.
 A question about the language goes to the `skiss` repository, not here.
+
+A worker never subscribes to its own PR, never schedules check-ins for
+itself, and never wakes itself up later. The tech lead watches the PR.
+When the PR is open and CI is green, the worker's job is finished.
 
 ---
 
