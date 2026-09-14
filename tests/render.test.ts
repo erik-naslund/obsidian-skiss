@@ -1,4 +1,4 @@
-import { compile, formatDiagnostic } from '@eriknaslund/skiss';
+import { compile } from '@eriknaslund/skiss';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from '../src/render';
 import { asContainer, StubDOMParser, StubElement } from './stub-dom';
@@ -35,6 +35,9 @@ CharacterPage @Community ~ Character    # the community wiki's version
 // `Ferson` is not `Person`: an undeclared class, which resolve reports as a warning.
 const WITH_TYPO = 'Character\n  name\n  homeworld: Ferson\n  x: frobnicate\n';
 
+// A warning on line 3 and an error on line 4, with enough left to draw a diagram.
+const WITH_WARNING_AND_ERROR = 'Character\n  name\n  homeworld: Ferson\n!!!\n';
+
 async function renderInto(source: string): Promise<StubElement> {
   const el = new StubElement();
   await render(source, asContainer(el));
@@ -54,17 +57,24 @@ describe('render', () => {
     expect(el.find('skiss-diagram')?.children.map((child) => child.tagName)).toEqual(['svg']);
   });
 
-  it('lists every diagnostic above the diagram, formatted without a file name', async () => {
+  it('words each diagnostic for a note, with no column and no code', async () => {
+    const el = await renderInto(WITH_WARNING_AND_ERROR);
+
+    expect(el.find('skiss-diagnostics')?.lines()).toEqual([
+      'Line 3: class `Ferson` is not declared',
+      'Error, line 4: A line at column 0 must start with a class name or `#` for a comment',
+    ]);
+  });
+
+  it('lists every diagnostic the compiler reported, one per line', async () => {
     const el = await renderInto(WITH_TYPO);
 
-    const expected = compile(WITH_TYPO, { target: 'mermaid' }).diagnostics.map((d) =>
-      formatDiagnostic(d),
-    );
-    expect(expected.length).toBeGreaterThan(0);
-    expect(el.find('skiss-diagnostics')?.lines()).toEqual(expected);
-    // No file name means the line opens with the line number, not a path.
-    for (const line of expected) {
-      expect(line).toMatch(/^\d+:/);
+    const { diagnostics } = compile(WITH_TYPO, { target: 'mermaid' });
+    expect(diagnostics.length).toBeGreaterThan(0);
+    expect(el.find('skiss-diagnostics')?.lines()).toHaveLength(diagnostics.length);
+    // The line number a reader counts inside the block, never `line:col`.
+    for (const line of el.find('skiss-diagnostics')?.lines() ?? []) {
+      expect(line).toMatch(/^(Error, line|Line) \d+: /);
     }
   });
 
@@ -75,12 +85,12 @@ describe('render', () => {
     expect(mermaidRender).toHaveBeenCalledTimes(1);
   });
 
-  it('puts the diagnostics before the diagram', async () => {
+  it('puts the diagram before the diagnostics', async () => {
     const el = await renderInto(WITH_TYPO);
 
     expect(el.children.map((child) => child.className)).toEqual([
-      'skiss-diagnostics',
       'skiss-diagram',
+      'skiss-diagnostics',
     ]);
   });
 
@@ -90,6 +100,10 @@ describe('render', () => {
   ])('shows a placeholder for %s and never calls Mermaid', async (_name, source) => {
     const el = await renderInto(source);
 
+    expect(el.children.map((child) => child.className)).toEqual([
+      'skiss-placeholder',
+      'skiss-diagnostics',
+    ]);
     expect(el.find('skiss-diagnostics')?.children).toEqual([]);
     expect(el.find('skiss-placeholder')?.textContent).toBe('Nothing to draw yet');
     expect(el.find('skiss-diagram')).toBeUndefined();
@@ -100,7 +114,9 @@ describe('render', () => {
     // Bare `classDiagram` again, but this time with something to report.
     const el = await renderInto('!!!\n');
 
-    expect(el.find('skiss-diagnostics')?.lines().length).toBeGreaterThan(0);
+    expect(el.find('skiss-diagnostics')?.lines()).toEqual([
+      'Error, line 1: A line at column 0 must start with a class name or `#` for a comment',
+    ]);
     expect(el.find('skiss-placeholder')?.textContent).toBe('Nothing to draw yet');
     expect(mermaidRender).not.toHaveBeenCalled();
   });
