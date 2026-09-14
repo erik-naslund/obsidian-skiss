@@ -1,7 +1,7 @@
 import { compile, formatDiagnostic } from '@eriknaslund/skiss';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from '../src/render';
-import { asContainer, StubElement } from './stub-dom';
+import { asContainer, StubDOMParser, StubElement } from './stub-dom';
 
 const { loadMermaid, mermaidRender } = vi.hoisted(() => {
   const mermaidRender = vi.fn(async (id: string, _text: string) => ({ svg: `<svg id="${id}"/>` }));
@@ -9,6 +9,9 @@ const { loadMermaid, mermaidRender } = vi.hoisted(() => {
 });
 
 vi.mock('obsidian', () => ({ loadMermaid }));
+
+// `DOMParser` is a browser global inside Obsidian; a test run has to supply one.
+vi.stubGlobal('DOMParser', StubDOMParser);
 
 // The one-page example from the skiss README: the shape a reviewer checks in a vault.
 const EXAMPLE = `Character @Catalog                      # a person or droid in the archive
@@ -48,7 +51,7 @@ describe('render', () => {
 
     const [, text] = mermaidRender.mock.calls[0] ?? [];
     expect(text).toBe(compile(EXAMPLE, { target: 'mermaid' }).output);
-    expect(el.find('skiss-diagram')?.innerHTML).toContain('<svg');
+    expect(el.find('skiss-diagram')?.children.map((child) => child.tagName)).toEqual(['svg']);
   });
 
   it('lists every diagnostic above the diagram, formatted without a file name', async () => {
@@ -122,6 +125,17 @@ describe('render', () => {
     expect(el.find('skiss-diagram')?.lines()).toEqual([
       'Diagram could not be rendered',
       'mermaid exploded',
+    ]);
+  });
+
+  it('reports an SVG it cannot parse as a failed diagram', async () => {
+    mermaidRender.mockResolvedValueOnce({ svg: 'not markup at all' });
+
+    const el = await renderInto(EXAMPLE);
+
+    expect(el.find('skiss-diagram')?.lines()).toEqual([
+      'Diagram could not be rendered',
+      'Mermaid returned an SVG that could not be parsed',
     ]);
   });
 
