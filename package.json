@@ -22,5 +22,8 @@
     "obsidian": "latest",
     "typescript": "^5.9.3",
     "vitest": "^5.0.0"
+  },
+  "dependencies": {
+    "@eriknaslund/skiss": "0.1.0"
   }
 }
