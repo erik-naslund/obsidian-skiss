@@ -1,6 +1,7 @@
 import { compile } from '@eriknaslund/skiss';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from '../src/render';
+import type { SkissSettings } from '../src/settings';
 import { asContainer, StubDOMParser, StubElement } from './stub-dom';
 
 const { loadMermaid, mermaidRender } = vi.hoisted(() => {
@@ -49,9 +50,12 @@ Planet   ? do moons get their own class
   climate   # as the archive records it   ? whose classification
 `;
 
-async function renderInto(source: string): Promise<StubElement> {
+// The settings a reader starts with: everything the block carries is shown.
+const ALL_ON: SkissSettings = { showWarnings: true, showQuestions: true, showComments: true };
+
+async function renderInto(source: string, settings: SkissSettings = ALL_ON): Promise<StubElement> {
   const el = new StubElement();
-  await render(source, asContainer(el));
+  await render(source, asContainer(el), settings);
   return el;
 }
 
@@ -224,5 +228,79 @@ describe('render', () => {
     const [first, second] = mermaidRender.mock.calls;
     expect(first?.[0]).toBeDefined();
     expect(first?.[0]).not.toBe(second?.[0]);
+  });
+});
+
+describe('what the settings hide', () => {
+  function without(key: keyof SkissSettings): SkissSettings {
+    return { ...ALL_ON, [key]: false };
+  }
+
+  it('leaves out the warnings but keeps the errors when warnings are off', async () => {
+    const el = await renderInto(WITH_WARNING_AND_ERROR, without('showWarnings'));
+
+    expect(el.find('skiss-diagnostics')?.lines()).toEqual([
+      'Error, line 4: A line at column 0 must start with a class name or `#` for a comment',
+    ]);
+  });
+
+  it('renders an empty diagnostics list when warnings are off and none is an error', async () => {
+    const el = await renderInto(WITH_TYPO, without('showWarnings'));
+
+    expect(compile(WITH_TYPO, { target: 'mermaid' }).diagnostics.length).toBeGreaterThan(0);
+    expect(el.find('skiss-diagnostics')?.lines()).toEqual([]);
+  });
+
+  it('leaves the questions and the comments alone when warnings are off', async () => {
+    const el = await renderInto(WITH_DOUBTS, without('showWarnings'));
+
+    expect(el.find('skiss-questions')?.lines()).toHaveLength(5);
+    expect(el.find('skiss-comments')?.lines()).toHaveLength(3);
+  });
+
+  it('leaves out the questions, and nothing else, when questions are off', async () => {
+    const el = await renderInto(WITH_DOUBTS, without('showQuestions'));
+
+    expect(el.children.map((child) => child.className)).toEqual([
+      'skiss-diagram',
+      'skiss-diagnostics',
+      'skiss-comments',
+    ]);
+    expect(el.find('skiss-comments')?.lines()).toEqual([
+      'Comments',
+      'Character: a person or droid in the archive',
+      'Planet.climate: as the archive records it',
+    ]);
+  });
+
+  it('leaves out the comments, and nothing else, when comments are off', async () => {
+    const el = await renderInto(WITH_DOUBTS, without('showComments'));
+
+    expect(el.children.map((child) => child.className)).toEqual([
+      'skiss-diagram',
+      'skiss-diagnostics',
+      'skiss-questions',
+    ]);
+    expect(el.find('skiss-questions')?.lines()).toEqual([
+      'Open questions',
+      'Character: is a droid a character',
+      'Character.homeworld: which planet counts, birth or home',
+      'Planet: do moons get their own class',
+      'Planet.climate: whose classification',
+    ]);
+  });
+
+  it('still draws the diagram with every switch off', async () => {
+    const el = await renderInto(WITH_DOUBTS, {
+      showWarnings: false,
+      showQuestions: false,
+      showComments: false,
+    });
+
+    expect(el.children.map((child) => child.className)).toEqual([
+      'skiss-diagram',
+      'skiss-diagnostics',
+    ]);
+    expect(mermaidRender).toHaveBeenCalledTimes(1);
   });
 });

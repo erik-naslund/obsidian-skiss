@@ -1,7 +1,7 @@
 /**
- * The DOM `render` touches, and no more. The repository depends on nothing but
- * `@eriknaslund/skiss`, so there is no jsdom to render into; keeping this
- * double small keeps `render` honest about how much DOM it uses.
+ * The DOM `render` and the settings tab touch, and no more. The repository
+ * depends on nothing but `@eriknaslund/skiss`, so there is no jsdom to render
+ * into; keeping this double small keeps both honest about how much DOM they use.
  */
 export class StubElement {
   className = '';
@@ -15,6 +15,11 @@ export class StubElement {
 
   append(child: StubElement): void {
     this.children.push(child);
+  }
+
+  /** The settings tab clears its container before it fills it again. */
+  empty(): void {
+    this.children.length = 0;
   }
 
   /** The first descendant carrying `className`, searched depth first. */
