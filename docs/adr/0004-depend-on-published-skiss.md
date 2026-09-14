@@ -10,7 +10,7 @@ The plugin needs to parse Skiss, produce diagnostics, generate Mermaid and gener
 
 ## Decision
 
-- The plugin depends on `skiss` as a normal npm dependency and pins a published version in every release.
+- The plugin depends on `@eriknaslund/skiss` (the npm name of the `skiss` package, see that repository's ADR 0009) as a normal npm dependency and pins a published version in every release.
 - No parsing, diagnostics, or generation code lives in this repository. If rendering needs something the package does not expose, the package gets the feature first.
 - During development a local link to an unpublished `skiss` build is allowed, but a release never ships one.
 

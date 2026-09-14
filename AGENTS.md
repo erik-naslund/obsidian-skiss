@@ -15,7 +15,7 @@ inside its issue, and surfaces anything a human must decide.
 
 An Obsidian plugin that renders [Skiss](https://github.com/erik-naslund/skiss)
 code blocks as diagrams and exports them to LinkML. It is a thin layer
-over the `skiss` npm package and contains no language logic.
+over the `skiss` package (on npm as `@eriknaslund/skiss`) and contains no language logic.
 
 Stack (frozen unless an ADR changes it):
 
