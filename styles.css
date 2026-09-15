@@ -24,11 +24,25 @@
 .skiss-list-heading {
   font-weight: var(--font-semibold);
   color: var(--text-faint);
-  text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 .skiss-diagram {
   overflow-x: auto;
   text-align: center;
+}
+
+/* Mermaid writes an inline pixel `max-width` on the SVG it hands back, so a
+   wide diagram scrolls on a phone instead of shrinking. This overrides it;
+   the scroll above stays for a diagram too tall to shrink into. */
+.skiss-diagram svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* "Nothing to draw yet" is the plugin talking, not the note: the register of
+   the diagnostics below it rather than of the prose around it. */
+.skiss-placeholder {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-faint);
 }

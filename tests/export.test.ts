@@ -37,7 +37,12 @@ const { Notice, normalizePath, notices } = vi.hoisted(() => {
   };
 });
 
-vi.mock('obsidian', () => ({ Notice, normalizePath }));
+// `StubFile` stands in as `TFile`, so the `instanceof` narrowing `export.ts`
+// does over what a path holds is the one it does in a vault.
+vi.mock('obsidian', async () => {
+  const { StubFile } = await import('./stub-vault');
+  return { Notice, normalizePath, TFile: StubFile };
+});
 
 // `navigator.clipboard` is a browser global inside Obsidian; a test run has to
 // supply one.
@@ -292,6 +297,20 @@ describe('the file sink', () => {
     expect(vault.processed).toEqual(['Note.linkml.yaml']);
     expect(vault.contentOf('Note.linkml.yaml')).not.toContain('stale');
     expect(notices[0]).toBe('Updated Note.linkml.yaml');
+  });
+
+  it('names the folder in the way instead of failing to create a file', async () => {
+    const vault = new StubVault();
+    // A folder called `Note.linkml.yaml` is odd but allowed, and it is exactly
+    // what `getFileByPath` cannot see: the create would throw "File already
+    // exists" and the user would read it as a failed export with no cause.
+    vault.addFolder('Note.linkml.yaml');
+
+    await runExport(vault, 'Note.md', noteWith(CHARACTER));
+
+    expect(vault.created).toEqual([]);
+    expect(vault.processed).toEqual([]);
+    expect(notices[0]).toBe('A folder is in the way of the export: Note.linkml.yaml');
   });
 
   it("writes to the note's own sibling path and nothing else", async () => {

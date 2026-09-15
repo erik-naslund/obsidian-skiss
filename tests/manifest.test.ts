@@ -8,6 +8,12 @@ function readJson(name: string): Record<string, unknown> {
   return JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
 }
 
+/** Every version CHANGELOG.md carries a `## [x.y.z]` section for. */
+function releasedVersions(): string[] {
+  const changelog = readFileSync(new URL('../CHANGELOG.md', import.meta.url), 'utf8');
+  return [...changelog.matchAll(/^## \[(\d+\.\d+\.\d+)\]/gm)].map(([, version = '']) => version);
+}
+
 describe('plugin metadata', () => {
   it('declares the plugin id and version Obsidian installs under', () => {
     const manifest = readJson('manifest.json');
@@ -22,6 +28,27 @@ describe('plugin metadata', () => {
     const versions = readJson('versions.json');
 
     expect(versions[String(manifest.version)]).toBe(manifest.minAppVersion);
+  });
+
+  it('maps released versions only, so nothing in versions.json is invented', () => {
+    // Obsidian reads this file to decide which download an old vault gets, so a
+    // version that was never released is a line about nothing — `0.0.0` was one.
+    const versions = Object.keys(readJson('versions.json'));
+    const released = releasedVersions();
+
+    expect(versions).not.toContain('0.0.0');
+    expect(versions.length).toBeGreaterThan(0);
+    for (const version of versions) {
+      expect(released).toContain(version);
+    }
+  });
+
+  it('maps every version it has released, so no vault is left without one', () => {
+    // The order of the keys is Obsidian's business, not the file's: compared
+    // sorted, so adding an entry in the wrong place is not a failure.
+    const versions = Object.keys(readJson('versions.json')).sort();
+
+    expect(versions).toEqual(releasedVersions().sort());
   });
 
   it('keeps package.json on the same version as the manifest', () => {

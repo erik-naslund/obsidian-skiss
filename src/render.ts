@@ -169,11 +169,15 @@ function appendList(
   }
 }
 
+/** The diagnostics, or nothing at all when the block has none, as `appendList`. */
 function appendDiagnostics(
   el: HTMLElement,
   diagnostics: readonly Diagnostic[],
   { offset, scope }: Numbering,
 ): void {
+  if (diagnostics.length === 0) {
+    return;
+  }
   const diagnosticsEl = appendDiv(el, 'skiss-diagnostics');
   for (const diagnostic of diagnostics) {
     appendDiv(diagnosticsEl).textContent = describe(diagnostic, diagnostic.line + offset, scope);
