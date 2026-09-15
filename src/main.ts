@@ -71,6 +71,17 @@ export default class SkissPlugin extends Plugin {
     this.rerenderOpenNotes();
   }
 
+  /**
+   * Obsidian calls this when `data.json` changed underneath the plugin, which
+   * is what a settings change on another device looks like once Sync has
+   * carried it over. Without it this device keeps the values it loaded until it
+   * is reloaded, and the blocks keep showing what the other device turned off.
+   */
+  async onExternalSettingsChange(): Promise<void> {
+    this.settings = readSettings(await this.loadData());
+    this.rerenderOpenNotes();
+  }
+
   private addExportCommand({ id, name, format, sink }: ExportCommand): void {
     this.addCommand({
       id,

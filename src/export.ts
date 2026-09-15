@@ -1,5 +1,5 @@
 import { type CompileResult, compile, type Diagnostic } from '@eriknaslund/skiss';
-import { type MarkdownView, Notice, normalizePath, type TFile, type Vault } from 'obsidian';
+import { type MarkdownView, Notice, normalizePath, TFile, type Vault } from 'obsidian';
 import { describe } from './diagnostics';
 
 /** The info string of a block these commands export, and the fence it opens. */
@@ -25,6 +25,9 @@ const FORMATS: Record<Format, FormatSpec> = {
 };
 
 const NO_BLOCKS = 'No skiss blocks in this note';
+
+/** The export's own path is taken by a folder, so there is nowhere to write. */
+const PATH_IS_A_FOLDER = 'A folder is in the way of the export';
 
 /** A notice is a small box; the rest of the diagnostics are in the block itself. */
 const DIAGNOSTICS_IN_NOTICE = 3;
@@ -191,6 +194,11 @@ function noteTextOf(vault: Vault, file: TFile, view: MarkdownView | undefined): 
  * another plugin writing the same file — and the notice says which of the two
  * happened, because creating a file and overwriting one are not the same thing
  * to whoever hand-edited it.
+ *
+ * The lookup is `getAbstractFileByPath`, not `getFileByPath`: the latter hands
+ * back `null` for a path a *folder* occupies, and `create` then throws
+ * "File already exists" at a user who cannot tell what the export tripped over.
+ * A folder is named instead, and nothing is written.
  */
 async function writeNextToNote(
   vault: Vault,
@@ -199,13 +207,15 @@ async function writeNextToNote(
   output: string,
 ): Promise<void> {
   const path = outputPathFor(notePath, format);
-  const existing = vault.getFileByPath(path);
+  const existing = vault.getAbstractFileByPath(path);
   if (existing === null) {
     await vault.create(path, output);
     new Notice(`Created ${path}`);
-  } else {
+  } else if (existing instanceof TFile) {
     await vault.process(existing, () => output);
     new Notice(`Updated ${path}`);
+  } else {
+    new Notice(`${PATH_IS_A_FOLDER}: ${path}`);
   }
 }
 

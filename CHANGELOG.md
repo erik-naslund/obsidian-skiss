@@ -7,8 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **A settings change on another device arrives without a reload.** With
+  Obsidian Sync, turning the warnings, the questions or the comments off on one
+  device now reaches the others as soon as the change lands, rather than at the
+  next reload.
+
+### Changed
+
+- **A wide diagram shrinks to the width of the screen** instead of scrolling
+  sideways on a phone. A diagram too tall to shrink into still scrolls.
+- **"Nothing to draw yet" reads as the plugin talking**, in the register of the
+  diagnostics below it, rather than as a line of the note.
+- **The "Open questions" and "Comments" headings are in sentence case**, as the
+  rest of Obsidian's interface is, instead of shouting in capitals.
+
 ### Fixed
 
+- **An export whose path is taken by a folder says so.** Where the command used
+  to report `Export failed: File already exists`, it now names the folder that
+  is in the way and writes nothing.
 - **A diagnostic under a diagram names the line of the note**, the same line the
   export notice names, instead of counting from the top of the code block. Where
   Obsidian will not say where a block sits, the block's own numbering is kept and

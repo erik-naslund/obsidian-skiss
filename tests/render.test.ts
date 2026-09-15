@@ -157,9 +157,10 @@ describe('render', () => {
   it('lists the doubts and the descriptions under the diagnostics, in source order', async () => {
     const el = await renderInto(WITH_DOUBTS);
 
+    // Nothing is wrong with this block, so there is no diagnostics container
+    // between the diagram and the lists.
     expect(el.children.map((child) => child.className)).toEqual([
       'skiss-diagram',
-      'skiss-diagnostics',
       'skiss-questions',
       'skiss-comments',
     ]);
@@ -190,6 +191,15 @@ describe('render', () => {
     ]);
   });
 
+  it('renders no diagnostics container for a block with nothing to report', async () => {
+    // An empty `<div class="skiss-diagnostics">` under every clean block is a
+    // container with nothing in it; the lists above render nothing for nothing.
+    const el = await renderInto(WITH_DOUBTS);
+
+    expect(compile(WITH_DOUBTS, { target: 'mermaid' }).diagnostics).toEqual([]);
+    expect(el.find('skiss-diagnostics')).toBeUndefined();
+  });
+
   it('renders neither container for a block with no doubts and no descriptions', async () => {
     const el = await renderInto(WITH_TYPO);
 
@@ -211,11 +221,10 @@ describe('render', () => {
   ])('shows a placeholder for %s and never calls Mermaid', async (_name, source) => {
     const el = await renderInto(source);
 
-    expect(el.children.map((child) => child.className)).toEqual([
-      'skiss-placeholder',
-      'skiss-diagnostics',
-    ]);
-    expect(el.find('skiss-diagnostics')?.children).toEqual([]);
+    // Nothing to draw and nothing to report: the placeholder is the whole
+    // block, with no empty diagnostics container under it.
+    expect(el.children.map((child) => child.className)).toEqual(['skiss-placeholder']);
+    expect(el.find('skiss-diagnostics')).toBeUndefined();
     expect(el.find('skiss-placeholder')?.textContent).toBe('Nothing to draw yet');
     expect(el.find('skiss-diagram')).toBeUndefined();
     expect(mermaidRender).not.toHaveBeenCalled();
@@ -310,11 +319,11 @@ describe('what the settings hide', () => {
     ]);
   });
 
-  it('renders an empty diagnostics list when warnings are off and none is an error', async () => {
+  it('renders no diagnostics list at all when warnings are off and none is an error', async () => {
     const el = await renderInto(WITH_TYPO, without('showWarnings'));
 
     expect(compile(WITH_TYPO, { target: 'mermaid' }).diagnostics.length).toBeGreaterThan(0);
-    expect(el.find('skiss-diagnostics')?.lines()).toEqual([]);
+    expect(el.find('skiss-diagnostics')).toBeUndefined();
   });
 
   it('leaves the questions and the comments alone when warnings are off', async () => {
@@ -329,7 +338,6 @@ describe('what the settings hide', () => {
 
     expect(el.children.map((child) => child.className)).toEqual([
       'skiss-diagram',
-      'skiss-diagnostics',
       'skiss-comments',
     ]);
     expect(el.find('skiss-comments')?.lines()).toEqual([
@@ -344,7 +352,6 @@ describe('what the settings hide', () => {
 
     expect(el.children.map((child) => child.className)).toEqual([
       'skiss-diagram',
-      'skiss-diagnostics',
       'skiss-questions',
     ]);
     expect(el.find('skiss-questions')?.lines()).toEqual([
@@ -363,10 +370,7 @@ describe('what the settings hide', () => {
       showComments: false,
     });
 
-    expect(el.children.map((child) => child.className)).toEqual([
-      'skiss-diagram',
-      'skiss-diagnostics',
-    ]);
+    expect(el.children.map((child) => child.className)).toEqual(['skiss-diagram']);
     expect(mermaidRender).toHaveBeenCalledTimes(1);
   });
 });

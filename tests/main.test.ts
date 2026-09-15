@@ -81,16 +81,22 @@ const {
 
 // The npm `obsidian` package is types only, so every value the plugin imports
 // from it is a double.
-vi.mock('obsidian', () => ({
-  Plugin: PluginStub,
-  Notice,
-  loadMermaid,
-  normalizePath,
-  MarkdownRenderChild: MarkdownRenderChildStub,
-  MarkdownView: MarkdownViewStub,
-  PluginSettingTab: class {},
-  Setting: class {},
-}));
+vi.mock('obsidian', async () => {
+  // `StubFile` stands in as `TFile`, so the `instanceof` narrowing `export.ts`
+  // does over what a path holds is the one it does in a vault.
+  const { StubFile } = await import('./stub-vault');
+  return {
+    Plugin: PluginStub,
+    Notice,
+    loadMermaid,
+    normalizePath,
+    MarkdownRenderChild: MarkdownRenderChildStub,
+    MarkdownView: MarkdownViewStub,
+    TFile: StubFile,
+    PluginSettingTab: class {},
+    Setting: class {},
+  };
+});
 
 // `navigator.clipboard` is a browser global inside Obsidian; a test run has to
 // supply one.
@@ -366,6 +372,76 @@ describe('the settings', () => {
 
     plugin.settings.showQuestions = false;
     await plugin.saveSettings();
+    const el = await renderBlock(SOURCE);
+
+    expect(el.find('skiss-questions')).toBeUndefined();
+    expect(el.find('skiss-comments')?.lines()).toEqual([
+      'Comments',
+      'Character: a person or droid',
+    ]);
+  });
+});
+
+describe('a settings change from another device', () => {
+  /** What Obsidian Sync writes into `data.json` behind the plugin's back. */
+  function storeExternally(plugin: SkissPlugin, stored: unknown): void {
+    (plugin as unknown as Recorded).stored = stored;
+  }
+
+  it('reloads the settings Obsidian says changed underneath it', async () => {
+    const { plugin } = await load();
+    storeExternally(plugin, { showQuestions: false });
+
+    await plugin.onExternalSettingsChange();
+
+    expect(plugin.settings).toEqual({
+      showWarnings: true,
+      showQuestions: false,
+      showComments: true,
+    });
+  });
+
+  it('reads the new file through readSettings, so a hand-edited one still loads', async () => {
+    const { plugin } = await load();
+    // Not booleans, and a key nothing knows: the defaults stand, as on a first run.
+    storeExternally(plugin, { showWarnings: 'no', unrelated: 1 });
+
+    await plugin.onExternalSettingsChange();
+
+    expect(plugin.settings).toEqual({
+      showWarnings: true,
+      showQuestions: true,
+      showComments: true,
+    });
+  });
+
+  it('re-renders every open note, so the change lands without a reload', async () => {
+    const { plugin, views, otherView, updateOptions } = await load();
+    storeExternally(plugin, { showComments: false });
+
+    await plugin.onExternalSettingsChange();
+
+    for (const view of views) {
+      expect(view.previewMode.rerender).toHaveBeenCalledWith(true);
+    }
+    expect(otherView.previewMode.rerender).not.toHaveBeenCalled();
+    expect(updateOptions).toHaveBeenCalled();
+  });
+
+  it('writes nothing back: the other device already holds what it changed', async () => {
+    const { plugin, saved } = await load();
+    storeExternally(plugin, { showComments: false });
+
+    await plugin.onExternalSettingsChange();
+
+    expect(saved).toEqual([]);
+  });
+
+  it('renders a block it renders again with the settings that arrived', async () => {
+    const { plugin } = await load();
+    storeExternally(plugin, { showQuestions: false });
+
+    await plugin.onExternalSettingsChange();
     const el = await renderBlock(SOURCE);
 
     expect(el.find('skiss-questions')).toBeUndefined();

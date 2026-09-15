@@ -1,7 +1,15 @@
 /**
- * The DOM `render` and the settings tab touch, and no more. The repository
- * depends on nothing but `@eriknaslund/skiss`, so there is no jsdom to render
- * into; keeping this double small keeps both honest about how much DOM they use.
+ * The DOM `render` and the settings tab touch, and no more. The plugin ships
+ * nothing but `@eriknaslund/skiss`, and keeping this double small keeps both it
+ * and the code honest about how much DOM they use: what the double cannot
+ * express, the code does not rely on.
+ *
+ * The one exception is `render-svg.test.ts`, which runs against a real
+ * `DOMParser` under jsdom. `StubDOMParser` below reads the first tag name with
+ * a regex, so it cannot fail the way a browser's parser does — foreign content,
+ * the SVG attribute-adjustment table, entities, cross-document adoption — and
+ * that is where a "Mermaid returned an SVG that could not be parsed" comes
+ * from. jsdom is a devDependency for that file alone; everything else, this.
  */
 export class StubElement {
   className = '';
