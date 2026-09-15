@@ -7,8 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-15
+
+The block knows the note it sits in: line numbers, exports and commands all
+follow the note, and the two deep-review rounds at 0.1.1 are in. Built on
+`@eriknaslund/skiss` 0.4.0.
+
 ### Added
 
+- **Numeric enum values.** `priority: 1|2|3` renders as an enum of three values
+  and exports as such, where it used to be an error that lost the field
+  (Skiss specification 0.2, via `@eriknaslund/skiss` 0.4.0).
 - **A settings change on another device arrives without a reload.** With
   Obsidian Sync, turning the warnings, the questions or the comments off on one
   device now reaches the others as soon as the change lands, rather than at the
@@ -110,6 +119,7 @@ shape.
 - **Installable with [BRAT](https://github.com/TfTHacker/obsidian42-brat)** from
   `erik-naslund/obsidian-skiss`. Not in the community plugin list yet.
 
-[Unreleased]: https://github.com/erik-naslund/obsidian-skiss/compare/0.1.1...HEAD
+[Unreleased]: https://github.com/erik-naslund/obsidian-skiss/compare/0.2.0...HEAD
+[0.2.0]: https://github.com/erik-naslund/obsidian-skiss/compare/0.1.1...0.2.0
 [0.1.1]: https://github.com/erik-naslund/obsidian-skiss/releases/tag/0.1.1
 [0.1.0]: https://github.com/erik-naslund/obsidian-skiss/releases/tag/0.1.0
