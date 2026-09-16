@@ -1,4 +1,4 @@
-import { type App, type Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { type App, type Plugin, PluginSettingTab, type SettingDefinitionItem } from 'obsidian';
 
 /**
  * What a reader can quiet down when presenting a note. Errors are not one of
@@ -76,18 +76,48 @@ export class SkissSettingTab extends PluginSettingTab {
     super(app, plugin);
   }
 
-  display(): void {
-    this.containerEl.empty();
-    for (const option of OPTIONS) {
-      new Setting(this.containerEl)
-        .setName(option.name)
-        .setDesc(option.description)
-        .addToggle((toggle) =>
-          toggle.setValue(this.plugin.settings[option.key]).onChange(async (value) => {
-            this.plugin.settings[option.key] = value;
-            await this.plugin.saveSettings();
-          }),
-        );
-    }
+  /**
+   * The tab, described rather than built. Obsidian 1.13 renders a tab from what
+   * this returns and indexes it for the settings search, which a hand-built
+   * `display()` is not in; it does not call `display()` at all while this
+   * returns definitions. `minAppVersion` is 1.13.1, so there is no older
+   * Obsidian left to keep a second, imperative tab in step with.
+   */
+  getSettingDefinitions(): SettingDefinitionItem[] {
+    return OPTIONS.map(
+      (option): SettingDefinitionItem => ({
+        name: option.name,
+        desc: option.description,
+        control: {
+          type: 'toggle',
+          key: option.key,
+          defaultValue: DEFAULT_SETTINGS[option.key],
+        },
+      }),
+    );
   }
+
+  /** What a toggle opens at. A key the plugin does not know has no value. */
+  getControlValue(key: string): unknown {
+    return isSettingKey(key) ? this.plugin.settings[key] : undefined;
+  }
+
+  /**
+   * What a flipped toggle leaves behind. It goes through the plugin's own
+   * `saveSettings`, which persists the file *and* re-renders the open notes;
+   * the inherited implementation writes the file and leaves every block on
+   * screen showing what was just turned off.
+   */
+  async setControlValue(key: string, value: unknown): Promise<void> {
+    if (!isSettingKey(key) || typeof value !== 'boolean') {
+      return;
+    }
+    this.plugin.settings[key] = value;
+    await this.plugin.saveSettings();
+  }
+}
+
+/** Obsidian hands a control key back as a string; this is the narrowing. */
+function isSettingKey(key: string): key is keyof SkissSettings {
+  return OPTIONS.some((option) => option.key === key);
 }

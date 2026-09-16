@@ -94,7 +94,6 @@ vi.mock('obsidian', async () => {
     MarkdownView: MarkdownViewStub,
     TFile: StubFile,
     PluginSettingTab: class {},
-    Setting: class {},
   };
 });
 

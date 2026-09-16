@@ -68,9 +68,10 @@ export async function render(
   } catch (error) {
     // "Never an empty block or a thrown exception" cannot rest on the package
     // never throwing, so a failure is reported where diagnostics are.
-    appendDiv(el, 'skiss-placeholder').textContent = PLACEHOLDER;
-    appendDiv(appendDiv(el, 'skiss-diagnostics')).textContent =
-      `${COMPILE_FAILED}: ${messageOf(error)}`;
+    el.createDiv({ cls: 'skiss-placeholder', text: PLACEHOLDER });
+    el.createDiv({ cls: 'skiss-diagnostics' }).createDiv({
+      text: `${COMPILE_FAILED}: ${messageOf(error)}`,
+    });
     return;
   }
 
@@ -79,14 +80,14 @@ export async function render(
   // A document with no class has nothing to draw, which is the question being
   // asked — not what the empty diagram happens to be spelled as.
   if (doc.classes.length === 0) {
-    appendDiv(el, 'skiss-placeholder').textContent = PLACEHOLDER;
+    el.createDiv({ cls: 'skiss-placeholder', text: PLACEHOLDER });
     appendBelowDiagram(el, doc, settings, numbering);
     return;
   }
 
   // Everything below the diagram is appended before Mermaid is awaited, so it
   // settles under the diagram instead of sitting above it until it is drawn.
-  const diagramEl = appendDiv(el, 'skiss-diagram');
+  const diagramEl = el.createDiv({ cls: 'skiss-diagram' });
   appendBelowDiagram(el, doc, settings, numbering);
   await draw(diagramEl, output);
 }
@@ -162,10 +163,10 @@ function appendList(
   if (lines.length === 0) {
     return;
   }
-  const listEl = appendDiv(el, className);
-  appendDiv(listEl, 'skiss-list-heading').textContent = heading;
+  const listEl = el.createDiv({ cls: className });
+  listEl.createDiv({ cls: 'skiss-list-heading', text: heading });
   for (const line of lines) {
-    appendDiv(listEl).textContent = line;
+    listEl.createDiv({ text: line });
   }
 }
 
@@ -178,9 +179,9 @@ function appendDiagnostics(
   if (diagnostics.length === 0) {
     return;
   }
-  const diagnosticsEl = appendDiv(el, 'skiss-diagnostics');
+  const diagnosticsEl = el.createDiv({ cls: 'skiss-diagnostics' });
   for (const diagnostic of diagnostics) {
-    appendDiv(diagnosticsEl).textContent = describe(diagnostic, diagnostic.line + offset, scope);
+    diagnosticsEl.createDiv({ text: describe(diagnostic, diagnostic.line + offset, scope) });
   }
 }
 
@@ -193,8 +194,8 @@ async function draw(diagramEl: HTMLElement, output: string): Promise<void> {
     const { svg } = await mermaid.render(id, output);
     diagramEl.append(parseSvg(svg));
   } catch (error) {
-    appendDiv(diagramEl).textContent = RENDER_FAILED;
-    appendDiv(diagramEl).textContent = messageOf(error);
+    diagramEl.createDiv({ text: RENDER_FAILED });
+    diagramEl.createDiv({ text: messageOf(error) });
   }
 }
 
@@ -223,15 +224,6 @@ function parseSvg(svg: string): Element {
     throw new Error(SVG_UNPARSEABLE);
   }
   return root;
-}
-
-function appendDiv(parent: HTMLElement, className?: string): HTMLElement {
-  const div = parent.ownerDocument.createElement('div');
-  if (className !== undefined) {
-    div.className = className;
-  }
-  parent.append(div);
-  return div;
 }
 
 function messageOf(error: unknown): string {

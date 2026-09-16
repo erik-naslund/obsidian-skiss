@@ -7,6 +7,13 @@ on:
 
 permissions:
   contents: write
+  # What the attestation step below needs: `id-token` to mint the OIDC token it
+  # exchanges for a short-lived Sigstore signing certificate, and `attestations`
+  # to persist the signed statement against this repository. It does not push to
+  # a registry and creates no storage record, so `artifact-metadata` is not
+  # among them.
+  id-token: write
+  attestations: write
 
 jobs:
   release:
@@ -42,6 +49,19 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - run: pnpm verify
+
+      # A signed statement that this workflow, at this commit, produced these
+      # exact three files — so a reader can tell a release cut here from one
+      # built somewhere else and attached by hand. It has to run before the
+      # release is created: the assets are attested as they are built, and
+      # `main.js` is what `pnpm verify` just built.
+      - name: Attest the release assets
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            main.js
+            manifest.json
+            styles.css
 
       - name: Create the release
         env:
