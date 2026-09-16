@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-09-16
+
+What the community directory's scan of 0.2.0 asked for: settings that
+Obsidian's settings search can find, signed release assets, and a README that
+says what the plugin reaches for.
+
 ### Added
 
 - **The three files a release carries are signed as they are built.** The
@@ -140,7 +146,8 @@ shape.
 - **Installable with [BRAT](https://github.com/TfTHacker/obsidian42-brat)** from
   `erik-naslund/obsidian-skiss`. Not in the community plugin list yet.
 
-[Unreleased]: https://github.com/erik-naslund/obsidian-skiss/compare/0.2.0...HEAD
+[Unreleased]: https://github.com/erik-naslund/obsidian-skiss/compare/0.2.1...HEAD
+[0.2.1]: https://github.com/erik-naslund/obsidian-skiss/compare/0.2.0...0.2.1
 [0.2.0]: https://github.com/erik-naslund/obsidian-skiss/compare/0.1.1...0.2.0
 [0.1.1]: https://github.com/erik-naslund/obsidian-skiss/releases/tag/0.1.1
 [0.1.0]: https://github.com/erik-naslund/obsidian-skiss/releases/tag/0.1.0
