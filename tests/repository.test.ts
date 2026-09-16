@@ -2,10 +2,11 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 /**
- * Two rules that live outside the source and are enforced outside the test run:
- * `main.js` is built, never committed (AGENTS.md §2), and a tag that does not
- * match `manifest.json` never becomes a release (`release.yml`). Both hold
- * today; these are what notices a careless edit to either file.
+ * The rules that live outside the source and are enforced outside the test run:
+ * `main.js` is built, never committed (AGENTS.md §2), a tag that does not match
+ * `manifest.json` never becomes a release, and what a release carries is
+ * attested (`release.yml`). All of them hold today; these are what notices a
+ * careless edit to either file.
  */
 function read(name: string): string {
   return readFileSync(new URL(`../${name}`, import.meta.url), 'utf8');
@@ -49,5 +50,45 @@ describe('the tag the release workflow accepts', () => {
     expect(step).toContain('manifest_version="$(jq -r .version manifest.json)"');
     expect(step).toContain('if [ "$GITHUB_REF_NAME" != "$manifest_version" ]; then');
     expect(step.slice(0, step.indexOf('fi'))).toContain('exit 1');
+  });
+});
+
+describe('the provenance of what a release carries', () => {
+  const workflow = read('.github/workflows/release.yml');
+  const attestation = workflow.slice(
+    workflow.indexOf('Attest the release assets'),
+    workflow.indexOf('- name: Create the release'),
+  );
+
+  it('attests with an action pinned by commit SHA, as the rest of the job is', () => {
+    expect(attestation).toMatch(
+      /uses: actions\/attest-build-provenance@[0-9a-f]{40} # v\d+\.\d+\.\d+/,
+    );
+  });
+
+  it('attests the three files the release carries, and no others', () => {
+    // The same three `gh release create` attaches below; an asset left out of
+    // the subjects is an asset a reader cannot check the provenance of.
+    expect(entriesOf(attestation.slice(attestation.indexOf('subject-path:')))).toEqual([
+      'subject-path: |',
+      'main.js',
+      'manifest.json',
+      'styles.css',
+    ]);
+  });
+
+  it('attests before the release is created', () => {
+    // An attestation is of what was built here; attaching the assets first
+    // would leave a window where the release carries unattested files.
+    expect(workflow.indexOf('Attest the release assets')).toBeLessThan(
+      workflow.indexOf('Create the release'),
+    );
+  });
+
+  it('gives the job what minting and persisting an attestation needs', () => {
+    const permissions = entriesOf(workflow.slice(workflow.indexOf('permissions:')));
+
+    expect(permissions).toContain('id-token: write');
+    expect(permissions).toContain('attestations: write');
   });
 });

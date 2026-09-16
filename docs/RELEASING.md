@@ -58,7 +58,8 @@ Pushing the tag is the whole release. The `Release` workflow
 2. **Runs `pnpm install --frozen-lockfile` and `pnpm verify`** — lint,
    typecheck, tests, build. A release is never cut from a red gate, and the
    build is what produces `main.js`.
-3. **Creates the GitHub release** with generated notes and the three assets
+3. **Attests the three assets** — see below.
+4. **Creates the GitHub release** with generated notes and the three assets
    attached: `main.js`, `manifest.json`, `styles.css`.
 
 Nothing is ever uploaded by hand. `main.js` is never committed; it exists only
@@ -66,6 +67,37 @@ as a release asset.
 
 If the workflow fails on the tag check, delete the tag
 (`git push origin :0.1.0`), fix the manifest through a PR, and tag again.
+
+### The attestation
+
+Step 3 is [`actions/attest-build-provenance`][attest]. It records a **build
+provenance attestation**: a statement, in the [SLSA provenance][slsa] format,
+that names the three files by their SHA-256 digest and says which repository,
+which commit, which workflow and which run produced them. The statement is
+signed with a short-lived certificate from [Sigstore][sigstore] — the workflow
+never holds a signing key; GitHub's OIDC token is what proves who is signing,
+which is the `id-token: write` permission on the job — and the signed bundle is
+stored against this repository, where GitHub shows it under **Attestations**.
+
+What it is good for is a question a download cannot otherwise answer: *was this
+`main.js` built from this source, here?* A release asset built on someone's
+laptop and attached by hand has no attestation, and a tampered one does not
+match the digest in the attestation it claims.
+
+Anyone can check one with the GitHub CLI, against the file they downloaded:
+
+```sh
+gh attestation verify main.js --repo erik-naslund/obsidian-skiss
+```
+
+It prints the workflow and commit the file came from, and exits non-zero if
+there is no attestation for that digest. `manifest.json` and `styles.css` verify
+the same way. Obsidian itself does not check attestations; this is for a reader
+who wants to know where the file came from.
+
+[attest]: https://github.com/actions/attest-build-provenance
+[slsa]: https://slsa.dev/spec/v1.0/provenance
+[sigstore]: https://www.sigstore.dev/
 
 ## 3. Install it with BRAT
 
@@ -169,7 +201,7 @@ What it is looking for, and where this plugin stood at the guideline pass
 | The plugin id is not repeated in a command id | [Submission requirements][requirements] | `export-linkml-file` and its three siblings, which Obsidian registers as `skiss:export-linkml-file` and so on |
 | A `LICENSE` file, and the licence named | Developer policies | MIT |
 | No obfuscation, no ads, no telemetry, no self-updating | Developer policies | none of them |
-| Network use, an account, files outside the vault, all disclosed in the README | Developer policies | nothing to disclose: the plugin reads and writes only the vault |
+| Network use, an account, files outside the vault, all disclosed in the README | Developer policies | README, "Disclosures": the clipboard is written by the export commands and never read; no network use; no file outside the note's own folder |
 | Not a fork | Developer policies | its own repository |
 | The name does not trade on "Obsidian" | Developer policies | "Skiss" |
 

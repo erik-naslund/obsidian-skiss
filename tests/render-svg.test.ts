@@ -22,6 +22,31 @@ const { loadMermaid, mermaidRender } = vi.hoisted(() => {
 
 vi.mock('obsidian', () => ({ loadMermaid }));
 
+/**
+ * Obsidian adds its element helpers to the DOM prototypes when it starts; jsdom
+ * has no such thing, so the one helper the renderer uses is installed here.
+ * This stands in for Obsidian's `createDiv` the way `stub-dom.ts` does for the
+ * rest of the suite: it creates the div, applies `cls` and `text`, appends it
+ * and hands it back. Only the object form is covered, which is the only form
+ * the renderer uses.
+ */
+HTMLElement.prototype.createDiv = function createDiv(
+  this: HTMLElement,
+  info?: DomElementInfo | string,
+): HTMLDivElement {
+  const div = this.ownerDocument.createElement('div');
+  if (typeof info === 'object') {
+    if (typeof info.cls === 'string') {
+      div.className = info.cls;
+    }
+    if (typeof info.text === 'string') {
+      div.textContent = info.text;
+    }
+  }
+  this.append(div);
+  return div;
+};
+
 const ALL_ON: SkissSettings = { showWarnings: true, showQuestions: true, showComments: true };
 
 /** One class, so there is a diagram to draw and Mermaid is reached. */

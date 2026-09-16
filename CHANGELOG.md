@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The three files a release carries are signed as they are built.** The
+  release workflow records a build provenance attestation for `main.js`,
+  `manifest.json` and `styles.css`, so anyone can check that the file they
+  downloaded came from this repository — `gh attestation verify main.js --repo
+  erik-naslund/obsidian-skiss`. [docs/RELEASING.md](docs/RELEASING.md) says what
+  the attestation is and how to read one.
+- **The README says what the plugin touches**, under "Disclosures": the two
+  export-to-clipboard commands write to the system clipboard and nothing ever
+  reads it, no request goes over the network, and a file is only ever written
+  next to the note it was exported from.
+
+### Changed
+
+- **The settings turn up in Obsidian's own settings search.** Searching the
+  settings for "warnings" now finds *Show warnings* without opening the plugin's
+  tab first: the tab is described to Obsidian rather than drawn by the plugin,
+  which is what puts it in the index. The three toggles, their wording, their
+  defaults and what they do are unchanged.
+
 ## [0.2.0] - 2026-09-15
 
 The block knows the note it sits in: line numbers, exports and commands all

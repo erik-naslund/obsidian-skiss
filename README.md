@@ -46,6 +46,14 @@ Nothing else. The language, the parser and the LinkML generator live in the [`sk
 
 The file commands always write to the note's own sibling: `<note>.linkml.yaml` or `<note>.mmd`, in the note's folder. Running the command again refreshes that same file, so the export follows the note. **If you hand-edit an exported file, the next export overwrites your edit** — the notice says *Created* for a file that was not there and *Updated* for one that was. No other file is ever touched.
 
+## Disclosures
+
+Obsidian's developer policies ask a plugin to say what it reaches for beyond the note you are writing. This is all of it:
+
+- **The clipboard is written to, never read.** **Export LinkML to clipboard** and **Export Mermaid to clipboard** put the exported text on the system clipboard when you run one of them, and nothing else does. The plugin never reads the clipboard.
+- **No network requests.** Nothing is fetched and nothing is sent: the language, the diagrams and the export all run on your machine, and the plugin has no account, no telemetry and no update channel of its own.
+- **Files are written next to the note you export from, and nowhere else.** **Export LinkML to new file** and **Export Mermaid to new file** write `<note>.linkml.yaml` or `<note>.mmd` in the note's own folder. Nothing outside the vault is read or written, apart from the plugin's own settings, which Obsidian keeps with the plugin.
+
 ## Installing
 
 **From the community plugin list**, once it is listed: **Settings → Community plugins → Browse**, search for **Skiss**, install it and enable it. The submission is in review; until it lands, the BRAT route below is the way in.

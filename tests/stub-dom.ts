@@ -15,9 +15,6 @@ export class StubElement {
   className = '';
   textContent = '';
   readonly children: StubElement[] = [];
-  readonly ownerDocument = {
-    createElement: (tagName: string): StubElement => new StubElement(tagName),
-  };
 
   constructor(readonly tagName: string = 'div') {}
 
@@ -25,9 +22,19 @@ export class StubElement {
     this.children.push(child);
   }
 
-  /** The settings tab clears its container before it fills it again. */
-  empty(): void {
-    this.children.length = 0;
+  /**
+   * Obsidian's own helper, which the renderer uses in place of
+   * `document.createElement`. Like Obsidian's, it creates the element, applies
+   * `cls` and `text`, appends it to this one and hands it back; a caller that
+   * did not get the child appended for it would be testing something the
+   * plugin does not do.
+   */
+  createDiv(info?: { cls?: string; text?: string }): StubElement {
+    const child = new StubElement();
+    child.className = info?.cls ?? '';
+    child.textContent = info?.text ?? '';
+    this.children.push(child);
+    return child;
   }
 
   /** The first descendant carrying `className`, searched depth first. */

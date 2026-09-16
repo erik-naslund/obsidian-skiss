@@ -1,5 +1,5 @@
 import type { App } from 'obsidian';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   DEFAULT_SETTINGS,
   readSettings,
@@ -7,69 +7,24 @@ import {
   type SkissSettingsOwner,
   SkissSettingTab,
 } from '../src/settings';
-import { StubElement } from './stub-dom';
 
-const { rows, SettingStub, SettingTabStub } = vi.hoisted(() => {
-  /** The toggle a row carries: the value it opened with and what a click runs. */
-  class ToggleStub {
-    value = false;
-    change: ((value: boolean) => unknown) | undefined;
-
-    setValue(value: boolean): this {
-      this.value = value;
-      return this;
-    }
-
-    onChange(change: (value: boolean) => unknown): this {
-      this.change = change;
-      return this;
-    }
-  }
-
-  const rows: SettingStub[] = [];
-
-  /** One row of the tab: what it is called and the toggle it holds. */
-  class SettingStub {
-    name = '';
-    description = '';
-    toggle: ToggleStub | undefined;
-
-    constructor(readonly containerEl: unknown) {
-      rows.push(this);
-    }
-
-    setName(name: string): this {
-      this.name = name;
-      return this;
-    }
-
-    setDesc(description: string): this {
-      this.description = description;
-      return this;
-    }
-
-    addToggle(add: (toggle: ToggleStub) => unknown): this {
-      const toggle = new ToggleStub();
-      this.toggle = toggle;
-      add(toggle);
-      return this;
-    }
-  }
-
-  /** What `PluginSettingTab` gives a tab: Obsidian builds the container for it. */
+const { SettingTabStub } = vi.hoisted(() => {
+  /**
+   * What `PluginSettingTab` gives a tab. The tab describes itself and never
+   * touches the container Obsidian renders it into, so the double holds the two
+   * things the constructor is handed and nothing else.
+   */
   class SettingTabStub {
-    readonly containerEl = new StubElement();
-
     constructor(
       readonly app: App,
       readonly plugin: unknown,
     ) {}
   }
 
-  return { rows, SettingStub, SettingTabStub };
+  return { SettingTabStub };
 });
 
-vi.mock('obsidian', () => ({ PluginSettingTab: SettingTabStub, Setting: SettingStub }));
+vi.mock('obsidian', () => ({ PluginSettingTab: SettingTabStub }));
 
 const APP = {} as unknown as App;
 
@@ -84,22 +39,48 @@ function openTab(settings: SkissSettings = { ...DEFAULT_SETTINGS }): {
 } {
   const owner: Owner = { settings, saveSettings: vi.fn(() => Promise.resolve()) };
   const tab = new SkissSettingTab(APP, owner as unknown as SkissSettingsOwner);
-  tab.display();
   return { tab, owner };
 }
 
-/** The row a toggle sits in, by the name the tab shows. */
-function row(name: string): InstanceType<typeof SettingStub> {
-  const found = rows.find((candidate) => candidate.name === name);
+/** One row of the tab as these tests read it: what it says and what it edits. */
+interface Toggle {
+  name: string;
+  desc: string | DocumentFragment | undefined;
+  key: string;
+  defaultValue: boolean | undefined;
+}
+
+/**
+ * The toggles the tab describes, in order. A definition that is not a toggle
+ * fails here rather than quietly reading as one: the tab has three toggles and
+ * nothing else.
+ */
+function toggles(tab: SkissSettingTab): Toggle[] {
+  return tab.getSettingDefinitions().map((definition) => {
+    if (!('control' in definition) || definition.control === undefined) {
+      throw new Error('the tab describes an item that carries no control');
+    }
+    const control = definition.control;
+    if (control.type !== 'toggle') {
+      throw new Error(`the tab describes a ${control.type}, not a toggle`);
+    }
+    return {
+      name: definition.name,
+      desc: definition.desc,
+      key: control.key,
+      defaultValue: control.defaultValue,
+    };
+  });
+}
+
+/** The toggle the tab shows under `name`. */
+function toggle(tab: SkissSettingTab, name: string): Toggle {
+  const found = toggles(tab).find((candidate) => candidate.name === name);
   if (found === undefined) {
     throw new Error(`the tab has no row named ${name}`);
   }
   return found;
 }
-
-beforeEach(() => {
-  rows.length = 0;
-});
 
 describe('the settings a vault holds', () => {
   it('shows everything by default', () => {
@@ -139,55 +120,73 @@ describe('the settings a vault holds', () => {
 });
 
 describe('the settings tab', () => {
-  it('shows one toggle per setting, in the order the issue lists them', () => {
-    openTab();
+  it('describes one toggle per setting, in the order the issue lists them', () => {
+    const { tab } = openTab();
 
-    expect(rows.map((each) => each.name)).toEqual([
+    expect(toggles(tab).map((each) => each.name)).toEqual([
       'Show warnings',
       'Show open questions',
       'Show comments',
     ]);
-    expect(row('Show warnings').description).toContain('Errors are always listed');
+    expect(toggle(tab, 'Show warnings').desc).toContain('Errors are always listed');
+  });
+
+  it('keys each toggle to the setting it edits, at the default it ships with', () => {
+    const { tab } = openTab();
+
+    expect(toggles(tab).map(({ key, defaultValue }) => [key, defaultValue])).toEqual([
+      ['showWarnings', true],
+      ['showQuestions', true],
+      ['showComments', true],
+    ]);
   });
 
   it('opens each toggle at what the plugin holds', () => {
-    openTab({ showWarnings: false, showQuestions: true, showComments: false });
+    const { tab } = openTab({ showWarnings: false, showQuestions: true, showComments: false });
 
-    expect(row('Show warnings').toggle?.value).toBe(false);
-    expect(row('Show open questions').toggle?.value).toBe(true);
-    expect(row('Show comments').toggle?.value).toBe(false);
+    expect(tab.getControlValue('showWarnings')).toBe(false);
+    expect(tab.getControlValue('showQuestions')).toBe(true);
+    expect(tab.getControlValue('showComments')).toBe(false);
+  });
+
+  it('has no value for a key it does not know', () => {
+    const { tab } = openTab();
+
+    expect(tab.getControlValue('showDiagram')).toBeUndefined();
   });
 
   it('writes a flipped toggle to the plugin and saves it', async () => {
-    const { owner } = openTab();
+    const { tab, owner } = openTab();
 
-    await row('Show open questions').toggle?.change?.(false);
+    await tab.setControlValue('showQuestions', false);
 
     expect(owner.settings).toEqual({
       showWarnings: true,
       showQuestions: false,
       showComments: true,
     });
+    // Saving is what re-renders the open notes, so the blocks follow the toggle.
     expect(owner.saveSettings).toHaveBeenCalledTimes(1);
   });
 
   it('leaves the other settings alone', async () => {
-    const { owner } = openTab();
+    const { tab, owner } = openTab();
 
-    await row('Show comments').toggle?.change?.(false);
+    await tab.setControlValue('showComments', false);
 
     expect(owner.settings.showWarnings).toBe(true);
     expect(owner.settings.showQuestions).toBe(true);
   });
 
-  it('fills its container afresh each time it is opened', () => {
-    const { tab } = openTab();
-    const container = tab.containerEl as unknown as StubElement;
-    container.append(new StubElement());
+  it.each<[string, string, unknown]>([
+    ['a key it does not know', 'showDiagram', false],
+    ['a value that is not a boolean', 'showWarnings', 'no'],
+  ])('writes nothing and saves nothing for %s', async (_name, key, value) => {
+    const { tab, owner } = openTab();
 
-    tab.display();
+    await tab.setControlValue(key, value);
 
-    expect(container.children).toEqual([]);
-    expect(rows).toHaveLength(6);
+    expect(owner.settings).toEqual(DEFAULT_SETTINGS);
+    expect(owner.saveSettings).not.toHaveBeenCalled();
   });
 });
