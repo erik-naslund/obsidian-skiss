@@ -19,7 +19,7 @@ describe('plugin metadata', () => {
     const manifest = readJson('manifest.json');
 
     expect(manifest.id).toBe('skiss');
-    expect(manifest.version).toBe('0.3.1');
+    expect(manifest.version).toBe('0.4.0');
     expect(manifest.isDesktopOnly).toBe(false);
   });
 
