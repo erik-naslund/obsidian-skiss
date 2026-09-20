@@ -56,9 +56,9 @@ Obsidian's developer policies ask a plugin to say what it reaches for beyond the
 
 ## Installing
 
-**From the community plugin list**, once it is listed: **Settings → Community plugins → Browse**, search for **Skiss**, install it and enable it. The submission is in review; until it lands, the BRAT route below is the way in.
+**From the community plugin list**: **Settings → Community plugins → Browse**, search for **Skiss**, install it and enable it. Obsidian keeps it up to date from there.
 
-**With [BRAT](https://github.com/TfTHacker/obsidian42-brat)**, which installs a plugin straight from its GitHub release and is also how you follow pre-release builds:
+**With [BRAT](https://github.com/TfTHacker/obsidian42-brat)**, only if you want to follow a pre-release build before it reaches the list:
 
 1. **Settings → Community plugins → Browse**, find **BRAT** (*Obsidian42 - BRAT*), install it and enable it.
 2. **Settings → BRAT → "Add beta plugin"**, and enter `erik-naslund/obsidian-skiss`.

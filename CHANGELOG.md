@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Listed in the community plugin directory.** Install from
+  **Settings → Community plugins → Browse**; BRAT is now only for pre-release
+  builds. The README and the release guide say so.
+
 ## [0.2.1] - 2026-09-16
 
 What the community directory's scan of 0.2.0 asked for: settings that
