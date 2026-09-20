@@ -222,10 +222,14 @@ const EXPORT_IDS = [
   'export-linkml-clipboard',
   'export-mermaid-file',
   'export-mermaid-clipboard',
+  'export-svg-file',
+  'export-svg-clipboard',
+  'export-png-file',
+  'export-png-clipboard',
 ];
 
 describe('the export commands', () => {
-  it('registers the four ids and names the palette shows', async () => {
+  it('registers the eight ids and names the palette shows', async () => {
     await load();
 
     // The palette prefixes the plugin name and id itself; carrying either here
@@ -235,6 +239,10 @@ describe('the export commands', () => {
       ['export-linkml-clipboard', 'Export LinkML to clipboard'],
       ['export-mermaid-file', 'Export Mermaid to new file'],
       ['export-mermaid-clipboard', 'Export Mermaid to clipboard'],
+      ['export-svg-file', 'Export SVG to new file'],
+      ['export-svg-clipboard', 'Export SVG to clipboard'],
+      ['export-png-file', 'Export PNG to new file'],
+      ['export-png-clipboard', 'Export PNG to clipboard'],
     ]);
   });
 
@@ -289,6 +297,21 @@ describe('the export commands', () => {
 
     await vi.waitFor(() => expect(vault.created).toEqual([path]));
     expect(writeText).not.toHaveBeenCalled();
+  });
+
+  it('draws the active note through Mermaid when export-svg-file is invoked', async () => {
+    const { vault } = await load();
+    // The PNG commands go the same way and are rasterised past this point;
+    // `export-image.test.ts` drives both from `exportNote` with a browser.
+    loadMermaid.mockResolvedValueOnce({
+      render: (_id: string, _text: string) =>
+        Promise.resolve({ svg: '<svg viewBox="0 0 10 10"/>' }),
+    });
+
+    expect(check(commandWith('export-svg-file'), false)).toBe(true);
+
+    await vi.waitFor(() => expect(vault.created).toEqual(['Note.svg']));
+    expect(vault.contentOf('Note.svg')).toBe('<svg viewBox="0 0 10 10"/>');
   });
 
   it.each([

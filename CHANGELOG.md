@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The diagram exports as an image**, with four commands beside the four that
+  were there: **Export SVG to new file**, **Export SVG to clipboard**,
+  **Export PNG to new file** and **Export PNG to clipboard**. The whole note is
+  one diagram, drawn by the Mermaid Obsidian ships with; the file commands write
+  `<note>.svg` or `<note>.png` next to the note and refresh it on the next
+  export, as the other two formats do. The PNG is the diagram at twice its own
+  size on a transparent background. Putting the picture in the note is yours to
+  write — `![[<note>.png]]` — and where a webview cannot put an image on the
+  clipboard, **Export PNG to clipboard** says so and copies nothing.
+
 ### Changed
 
 - **Listed in the community plugin directory.** Install from

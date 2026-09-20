@@ -40,6 +40,30 @@ const EXPORT_COMMANDS: readonly ExportCommand[] = [
     format: 'mermaid',
     sink: 'clipboard',
   },
+  {
+    id: 'export-svg-file',
+    name: 'Export SVG to new file',
+    format: 'svg',
+    sink: 'file',
+  },
+  {
+    id: 'export-svg-clipboard',
+    name: 'Export SVG to clipboard',
+    format: 'svg',
+    sink: 'clipboard',
+  },
+  {
+    id: 'export-png-file',
+    name: 'Export PNG to new file',
+    format: 'png',
+    sink: 'file',
+  },
+  {
+    id: 'export-png-clipboard',
+    name: 'Export PNG to clipboard',
+    format: 'png',
+    sink: 'clipboard',
+  },
 ];
 
 export default class SkissPlugin extends Plugin {

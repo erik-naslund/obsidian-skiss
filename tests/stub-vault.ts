@@ -13,6 +13,13 @@ import type { MarkdownView, TFile, Vault } from 'obsidian';
 export class StubFile {
   content: string;
 
+  /**
+   * What a binary write left, kept apart from `content`: the doubles hand the
+   * bytes back as they were given, which is what a test asserting a PNG landed
+   * in the vault has to look at.
+   */
+  bytes: ArrayBuffer | null = null;
+
   constructor(
     readonly path: string,
     content = '',
@@ -38,6 +45,9 @@ export class StubVault {
   readonly folders = new Map<string, StubFolder>();
   readonly created: string[] = [];
   readonly processed: string[] = [];
+  /** The binary writes, kept apart from the text ones for the same reason. */
+  readonly createdBinary: string[] = [];
+  readonly modifiedBinary: string[] = [];
 
   add(path: string, content = ''): StubFile {
     const file = new StubFile(path, content);
@@ -78,6 +88,24 @@ export class StubVault {
     return Promise.resolve(this.add(path, data));
   }
 
+  /** As `create`, and as unwilling to write over a path the vault already holds. */
+  createBinary(path: string, data: ArrayBuffer): Promise<StubFile> {
+    if (this.files.has(path) || this.folders.has(path)) {
+      return Promise.reject(new Error(`File already exists: ${path}`));
+    }
+    this.createdBinary.push(path);
+    const file = this.add(path);
+    file.bytes = data;
+    return Promise.resolve(file);
+  }
+
+  /** A `Vault` has no binary `process`; `modifyBinary` is what the PNG is written with. */
+  modifyBinary(file: StubFile, data: ArrayBuffer): Promise<void> {
+    this.modifiedBinary.push(file.path);
+    file.bytes = data;
+    return Promise.resolve();
+  }
+
   /** `Vault.process` hands the current contents in and writes what it returns. */
   process(file: StubFile, fn: (data: string) => string): Promise<string> {
     this.processed.push(file.path);
@@ -87,6 +115,10 @@ export class StubVault {
 
   contentOf(path: string): string | undefined {
     return this.files.get(path)?.content;
+  }
+
+  bytesOf(path: string): ArrayBuffer | null {
+    return this.files.get(path)?.bytes ?? null;
   }
 }
 
