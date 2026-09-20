@@ -1,12 +1,16 @@
 import { type CompileResult, compile, type Diagnostic } from '@eriknaslund/skiss';
 import { type MarkdownView, Notice, normalizePath, TFile, type Vault } from 'obsidian';
 import { describe } from './diagnostics';
+import { diagramPng, diagramSvg } from './image';
 
 /** The info string of a block these commands export, and the fence it opens. */
 const LANGUAGE = 'skiss';
 
-/** What the blocks of a note are compiled to. */
-export type Format = 'linkml' | 'mermaid';
+/**
+ * What the blocks of a note are compiled to. `svg` and `png` are the Mermaid
+ * diagram drawn and then rasterised, so both carry whatever `mermaid` carries.
+ */
+export type Format = 'linkml' | 'mermaid' | 'svg' | 'png';
 
 /** Where the compiled text goes. */
 export type Sink = 'file' | 'clipboard';
@@ -22,12 +26,17 @@ const FORMATS: Record<Format, FormatSpec> = {
   linkml: { label: 'LinkML', suffix: '.linkml.yaml' },
   // `.mmd` is the extension the skiss CLI's own fixtures use.
   mermaid: { label: 'Mermaid', suffix: '.mmd' },
+  svg: { label: 'SVG', suffix: '.svg' },
+  png: { label: 'PNG', suffix: '.png' },
 };
 
 const NO_BLOCKS = 'No skiss blocks in this note';
 
 /** The export's own path is taken by a folder, so there is nowhere to write. */
 const PATH_IS_A_FOLDER = 'A folder is in the way of the export';
+
+/** No `ClipboardItem`, so there is no way to put an image on the clipboard. */
+const NO_IMAGE_CLIPBOARD = 'This device cannot put an image on the clipboard';
 
 /** A notice is a small box; the rest of the diagnostics are in the block itself. */
 const DIAGNOSTICS_IN_NOTICE = 3;
@@ -115,10 +124,11 @@ export function schemaNameFor(notePath: string): string {
 }
 
 /**
- * `<note>.linkml.yaml` or `<note>.mmd`, in the note's own folder. The path is
- * built here rather than taken from the user, and the guidelines ask for
- * `normalizePath` on both: it is what makes a folder or a note name carrying a
- * non-breaking space or a decomposed accent find the file the vault holds.
+ * `<note>.linkml.yaml`, `<note>.mmd`, `<note>.svg` or `<note>.png`, in the
+ * note's own folder. The path is built here rather than taken from the user, and
+ * the guidelines ask for `normalizePath` on it: that is what makes a folder or a
+ * note name carrying a non-breaking space or a decomposed accent find the file
+ * the vault holds.
  */
 export function outputPathFor(notePath: string, format: Format): string {
   const slash = notePath.lastIndexOf('/');
@@ -127,20 +137,43 @@ export function outputPathFor(notePath: string, format: Format): string {
 }
 
 /**
- * The whole note as one document in `format`. Both formats read the same
+ * The whole note as one document in `format`. Every format reads the same
  * concatenated source, so a note is one schema and one diagram, and the
- * diagnostics of either map back to note lines the same way.
+ * diagnostics of any of them map back to note lines the same way. The image
+ * formats compile to Mermaid and are drawn from that, so a note exports the
+ * same diagram whether it is asked for as text or as a picture.
  */
 export function compileNote(source: string, format: Format, notePath: string): CompileResult {
   // `notes` stays off, so `?` doubts are no more drawn on an exported diagram
   // than on the one in the block.
-  return format === 'mermaid'
-    ? compile(source, { target: 'mermaid' })
-    : compile(source, { target: 'linkml', schemaName: schemaNameFor(notePath) });
+  return format === 'linkml'
+    ? compile(source, { target: 'linkml', schemaName: schemaNameFor(notePath) })
+    : compile(source, { target: 'mermaid' });
 }
 
 /**
- * Compiles every `skiss` block in `file` to `format` and hands the text to
+ * What a sink is handed: the compiled text, or the diagram as a PNG. Only the
+ * image formats reach a browser, and only the PNG comes back as bytes.
+ */
+type Payload = { kind: 'text'; text: string } | { kind: 'image'; blob: Blob };
+
+/**
+ * The compiled text as the sinks take it. `svg` is the markup Mermaid returns,
+ * as is; `png` is that markup rasterised.
+ */
+async function payloadOf(format: Format, output: string): Promise<Payload> {
+  if (format !== 'svg' && format !== 'png') {
+    return { kind: 'text', text: output };
+  }
+
+  const svg = await diagramSvg(output);
+  return format === 'svg'
+    ? { kind: 'text', text: svg }
+    : { kind: 'image', blob: await diagramPng(svg) };
+}
+
+/**
+ * Compiles every `skiss` block in `file` to `format` and hands the result to
  * `sink`. Reports what happened through notices and never throws: a command
  * that fails silently leaves the vault in a state the user cannot see.
  */
@@ -158,12 +191,21 @@ export async function exportNote(
       return;
     }
 
+    // Before anything is drawn: a webview with no `ClipboardItem` cannot take
+    // an image however well the PNG turns out, and the reason the user is given
+    // should be that one rather than whatever fails after it.
+    if (format === 'png' && sink === 'clipboard' && !clipboardTakesImages()) {
+      new Notice(NO_IMAGE_CLIPBOARD);
+      return;
+    }
+
     const { output, diagnostics } = compileNote(concatenateBlocks(blocks), format, file.path);
+    const payload = await payloadOf(format, output);
 
     if (sink === 'file') {
-      await writeNextToNote(vault, file.path, format, output);
+      await writeNextToNote(vault, file.path, format, payload);
     } else {
-      await copyToClipboard(format, output);
+      await copyToClipboard(format, payload);
     }
 
     if (diagnostics.length > 0) {
@@ -204,24 +246,61 @@ async function writeNextToNote(
   vault: Vault,
   notePath: string,
   format: Format,
-  output: string,
+  payload: Payload,
 ): Promise<void> {
   const path = outputPathFor(notePath, format);
   const existing = vault.getAbstractFileByPath(path);
   if (existing === null) {
-    await vault.create(path, output);
+    await createExport(vault, path, payload);
     new Notice(`Created ${path}`);
   } else if (existing instanceof TFile) {
-    await vault.process(existing, () => output);
+    await overwrite(vault, existing, payload);
     new Notice(`Updated ${path}`);
   } else {
     new Notice(`${PATH_IS_A_FOLDER}: ${path}`);
   }
 }
 
-async function copyToClipboard(format: Format, output: string): Promise<void> {
-  await navigator.clipboard.writeText(output);
+/** `createBinary` for the PNG, `create` for the formats that are text. */
+async function createExport(vault: Vault, path: string, payload: Payload): Promise<void> {
+  if (payload.kind === 'text') {
+    await vault.create(path, payload.text);
+    return;
+  }
+  await vault.createBinary(path, await payload.blob.arrayBuffer());
+}
+
+/**
+ * `process` for text, which is atomic against another plugin writing the same
+ * file. A `Vault` has no binary `process`, so the PNG goes through
+ * `modifyBinary` — the write for a file the user is not editing — and the
+ * create-or-update notice is the same either way.
+ */
+async function overwrite(vault: Vault, file: TFile, payload: Payload): Promise<void> {
+  if (payload.kind === 'text') {
+    await vault.process(file, () => payload.text);
+    return;
+  }
+  await vault.modifyBinary(file, await payload.blob.arrayBuffer());
+}
+
+async function copyToClipboard(format: Format, payload: Payload): Promise<void> {
+  if (payload.kind === 'text') {
+    await navigator.clipboard.writeText(payload.text);
+  } else {
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': payload.blob })]);
+  }
   new Notice(`Copied ${FORMATS[format].label} to clipboard`);
+}
+
+/**
+ * Whether an image can be put on the clipboard at all. `ClipboardItem` is what
+ * some mobile webviews do not carry; where it is missing the command says so
+ * and writes nothing, rather than copying the SVG markup as a consolation the
+ * user did not ask for.
+ */
+function clipboardTakesImages(): boolean {
+  return typeof ClipboardItem !== 'undefined';
 }
 
 function diagnosticsMessage(blocks: Block[], diagnostics: Diagnostic[]): string {
