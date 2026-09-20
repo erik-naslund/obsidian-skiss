@@ -31,10 +31,12 @@ In Reading view, and in Live Preview when the cursor is outside the block, that 
 ## What it does
 
 - **Renders `skiss` code blocks** as class diagrams, using the Mermaid that ships with Obsidian.
+- **Colours the block while you write in it.** Wherever the block shows its text — in Live Preview once the cursor is in it, and in source mode always — class and field names, types, the `@` systems, the enums, the operators and the `#` and `?` trailers take the colours your theme gives code. The block stays plain text you can type in: nothing is replaced by a widget.
+- **Marks the diagnostics in the gutter** beside the lines they are about, in that same view: red for an error, yellow for a warning, and the compiler's own wording when you hover one. *Show warnings* turns the yellow ones off; errors are always marked.
 - **Shows diagnostics** below the diagram instead of failing: an unknown type, a class you referenced but have not written yet, a line it could not read. Each one names the line of the note it is about.
 - **Lists the open questions and the comments** of the block below the diagram: the `?` questions under "Open questions" and the `#` descriptions under "Comments", each saying what carries it.
 - **Exports the note**, with eight commands. Four write a file next to the note — **Skiss: Export LinkML to new file**, **Export Mermaid to new file**, **Export SVG to new file** and **Export PNG to new file** — and four put the same thing on the clipboard: **Export LinkML to clipboard**, **Export Mermaid to clipboard**, **Export SVG to clipboard** and **Export PNG to clipboard**. Every `skiss` block in the note is exported together, as one schema and one diagram; the SVG and the PNG are that diagram, drawn by the same Mermaid the block is rendered with.
-- **Three settings**, all on by default, in Settings → Community plugins → Skiss: *Show warnings*, *Show open questions* and *Show comments*. They decide what is listed below the diagram when you want a quiet note to present from. Errors are not among them: a block that fails to compile must never look fine.
+- **Three settings**, all on by default, in Settings → Community plugins → Skiss: *Show warnings*, *Show open questions* and *Show comments*. They decide what is listed below the diagram when you want a quiet note to present from, and *Show warnings* decides the gutter markers in Live Preview with it. Errors are not among them: a block that fails to compile must never look fine.
 
 Nothing else. The language, the parser and the LinkML generator live in the [`skiss`](https://github.com/erik-naslund/skiss) package. This plugin is the thinnest possible layer over it.
 

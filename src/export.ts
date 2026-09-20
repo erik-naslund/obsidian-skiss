@@ -1,10 +1,8 @@
 import { type CompileResult, compile, type Diagnostic } from '@eriknaslund/skiss';
 import { type MarkdownView, Notice, normalizePath, TFile, type Vault } from 'obsidian';
 import { describe } from './diagnostics';
+import { skissFences } from './fences';
 import { diagramPng, diagramSvg } from './image';
-
-/** The info string of a block these commands export, and the fence it opens. */
-const LANGUAGE = 'skiss';
 
 /**
  * What the blocks of a note are compiled to. `svg` and `png` are the Mermaid
@@ -41,16 +39,6 @@ const NO_IMAGE_CLIPBOARD = 'This device cannot put an image on the clipboard';
 /** A notice is a small box; the rest of the diagnostics are in the block itself. */
 const DIAGNOSTICS_IN_NOTICE = 3;
 
-interface Fence {
-  /** The run of backticks or tildes that opened the block. */
-  marker: string;
-  /** Blockquote markers the opening fence carried, stripped from every line. */
-  quotes: number;
-  /** Indentation of the opening fence inside the quote, stripped from every body line. */
-  indent: number;
-  skiss: boolean;
-}
-
 /** A `skiss` block of a note, and where its body sits in that note. */
 export interface Block {
   body: string;
@@ -59,36 +47,15 @@ export interface Block {
 }
 
 /**
- * Every fenced `skiss` block in `text`, in the order they appear. A fence that
- * is never closed runs to the end of the note, as Obsidian's own renderer
- * treats it.
+ * Every fenced `skiss` block of `text`, in the order they appear, each as the
+ * one source its body makes. Which lines those are is `fences.ts`'s answer,
+ * and the editor extension reads the same one.
  */
 export function skissBlocks(text: string): Block[] {
-  const lines = text.split(/\r?\n/);
-  const blocks: Block[] = [];
-
-  let index = 0;
-  while (index < lines.length) {
-    const fence = openingFence(lines[index] ?? '');
-    index += 1;
-    if (fence === undefined) {
-      continue;
-    }
-
-    const start = index;
-    const body: string[] = [];
-    while (index < lines.length && !closesFence(lines[index] ?? '', fence)) {
-      body.push(bodyLine(lines[index] ?? '', fence));
-      index += 1;
-    }
-    index += 1;
-
-    if (fence.skiss) {
-      blocks.push({ body: body.join('\n'), line: start + 1 });
-    }
-  }
-
-  return blocks;
+  return skissFences(text).map((fence) => ({
+    body: fence.lines.map((line) => line.text).join('\n'),
+    line: fence.line,
+  }));
 }
 
 /** One source for the whole note: the blocks in order, separated by a blank line. */
@@ -314,83 +281,6 @@ function diagnosticsMessage(blocks: Block[], diagnostics: Diagnostic[]): string 
 
 function lineCountOf(body: string): number {
   return body.split('\n').length;
-}
-
-/** A blockquote marker, as Obsidian's own renderer reads one. */
-const QUOTE_MARKER = /^ {0,3}> ?/;
-
-/** How deep a quote may nest before the opening fence of a block is looked for. */
-const ANY_DEPTH = Number.POSITIVE_INFINITY;
-
-/**
- * A line with up to `limit` blockquote markers taken off the front. Obsidian
- * renders a fence inside a blockquote through the same processor, so the `>`
- * every line of such a block carries belongs to the quote, not to the block.
- * A body line is unquoted only as deeply as its opening fence was, so a `>` the
- * user wrote inside the block is left where it is.
- */
-function unquote(line: string, limit: number): { quotes: number; text: string } {
-  let text = line;
-  let quotes = 0;
-  while (quotes < limit) {
-    const match = QUOTE_MARKER.exec(text);
-    if (match === null) {
-      break;
-    }
-    quotes += 1;
-    text = text.slice(match[0].length);
-  }
-  return { quotes, text };
-}
-
-function openingFence(line: string): Fence | undefined {
-  const { quotes, text } = unquote(line, ANY_DEPTH);
-  // Not the 0-3 spaces of a top-level fence: a fence inside a list item is
-  // indented relative to its marker, as deeply as the list nests, and Obsidian
-  // renders that through this same processor. Its own indentation is the
-  // baseline the body is measured against.
-  const match = /^( *)(`{3,}|~{3,})(.*)$/.exec(text);
-  if (match === null) {
-    return undefined;
-  }
-
-  const [, indent = '', marker = '', info = ''] = match;
-  // A backtick fence's info string may not contain a backtick (CommonMark §4.5).
-  if (marker.startsWith('`') && info.includes('`')) {
-    return undefined;
-  }
-
-  return {
-    marker,
-    quotes,
-    indent: indent.length,
-    // The first word only, so that `skiss title=Foo` exports and `skisser` does not.
-    skiss: info.trim().split(/\s+/)[0] === LANGUAGE,
-  };
-}
-
-function closesFence(line: string, fence: Fence): boolean {
-  // The closing fence of an indented block carries that indentation too.
-  const match = /^ *(`{3,}|~{3,})[ \t]*$/.exec(unquote(line, fence.quotes).text);
-  if (match === null) {
-    return false;
-  }
-
-  const marker = match[1] ?? '';
-  return marker[0] === fence.marker[0] && marker.length >= fence.marker.length;
-}
-
-/** One line of a block's body, with the quote and the fence's indentation off. */
-function bodyLine(line: string, fence: Fence): string {
-  return dedent(unquote(line, fence.quotes).text, fence.indent);
-}
-
-function dedent(line: string, indent: number): string {
-  let stripped = 0;
-  while (stripped < indent && line[stripped] === ' ') {
-    stripped += 1;
-  }
-  return line.slice(stripped);
 }
 
 function basenameOf(notePath: string): string {

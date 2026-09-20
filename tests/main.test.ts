@@ -6,6 +6,7 @@ import { asVault, StubFile, StubVault } from './stub-vault';
 
 const {
   commands,
+  editorExtensions,
   loadMermaid,
   MarkdownRenderChildStub,
   MarkdownViewStub,
@@ -17,11 +18,14 @@ const {
   settingTabs,
 } = vi.hoisted(() => {
   const commands: Command[] = [];
+  /** The arrays handed to `registerEditorExtension`, one per load. */
+  const editorExtensions: unknown[][] = [];
   const processors: ((source: string, el: unknown, ctx: unknown) => unknown)[] = [];
   const settingTabs: unknown[] = [];
   const renderChildren: unknown[] = [];
   return {
     commands,
+    editorExtensions,
     processors,
     renderChildren,
     settingTabs,
@@ -67,6 +71,10 @@ const {
       saveData(data: unknown): Promise<void> {
         this.saved.push(data);
         return Promise.resolve();
+      }
+
+      registerEditorExtension(extension: unknown[]): void {
+        editorExtensions.push(extension);
       }
 
       registerMarkdownCodeBlockProcessor(
@@ -211,6 +219,7 @@ function check(command: Command, checking: boolean): unknown {
 
 beforeEach(() => {
   commands.length = 0;
+  editorExtensions.length = 0;
   processors.length = 0;
   renderChildren.length = 0;
   settingTabs.length = 0;
@@ -401,6 +410,49 @@ describe('the settings', () => {
       'Comments',
       'Character: a person or droid',
     ]);
+  });
+});
+
+describe('the Live Preview extension', () => {
+  /** The array `registerEditorExtension` was handed, which Obsidian keeps reading. */
+  function registered(): unknown[] {
+    const extension = editorExtensions[0];
+    if (extension === undefined) {
+      throw new Error('the plugin registered no editor extension');
+    }
+    return extension;
+  }
+
+  it('is registered once, as an array Obsidian keeps a reference to', async () => {
+    await load();
+
+    expect(editorExtensions).toHaveLength(1);
+    expect(registered()).toHaveLength(1);
+  });
+
+  it('is built again when the settings change, so the gutter reads the new ones', async () => {
+    const { plugin, updateOptions } = await load();
+    const before = registered()[0];
+
+    plugin.settings.showWarnings = false;
+    await plugin.saveSettings();
+
+    // The same array, holding an extension built with the settings as they are
+    // now: what `updateOptions` then asks the open editors to read.
+    expect(editorExtensions).toHaveLength(1);
+    expect(registered()).toHaveLength(1);
+    expect(registered()[0]).not.toBe(before);
+    expect(updateOptions).toHaveBeenCalled();
+  });
+
+  it('is built again when another device changes the settings', async () => {
+    const { plugin } = await load();
+    const before = registered()[0];
+    (plugin as unknown as Recorded).stored = { showWarnings: false };
+
+    await plugin.onExternalSettingsChange();
+
+    expect(registered()[0]).not.toBe(before);
   });
 });
 
