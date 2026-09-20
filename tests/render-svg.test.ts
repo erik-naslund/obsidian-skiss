@@ -47,7 +47,12 @@ HTMLElement.prototype.createDiv = function createDiv(
   return div;
 };
 
-const ALL_ON: SkissSettings = { showWarnings: true, showQuestions: true, showComments: true };
+const ALL_ON: SkissSettings = {
+  showWarnings: true,
+  showQuestions: true,
+  showComments: true,
+  highlightColours: 'calm',
+};
 
 /** One class, so there is a diagram to draw and Mermaid is reached. */
 const SOURCE = 'Character\n  id*\n  name\n';

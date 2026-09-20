@@ -3,7 +3,13 @@ import { MarkdownRenderChild, MarkdownView, Plugin } from 'obsidian';
 import { skissEditorExtension } from './editor';
 import { exportNote, type Format, type Sink } from './export';
 import { render } from './render';
-import { DEFAULT_SETTINGS, readSettings, type SkissSettings, SkissSettingTab } from './settings';
+import {
+  DEFAULT_SETTINGS,
+  readSettings,
+  type SkissSettings,
+  SkissSettingTab,
+  VIVID_BODY_CLASS,
+} from './settings';
 
 const MARKDOWN = 'md';
 const MARKDOWN_VIEW = 'markdown';
@@ -81,6 +87,7 @@ export default class SkissPlugin extends Plugin {
 
   async onload(): Promise<void> {
     this.settings = readSettings(await this.loadData());
+    this.applyPalette();
 
     this.registerMarkdownCodeBlockProcessor('skiss', (source, el, ctx) => {
       // The render child ties what is drawn to the section that holds it: when
@@ -103,8 +110,17 @@ export default class SkissPlugin extends Plugin {
     }
   }
 
+  /**
+   * The body carries the vivid palette while the plugin is loaded and nothing
+   * of the plugin's once it is not: a disabled plugin styles nothing.
+   */
+  onunload(): void {
+    document.body.removeClass(VIVID_BODY_CLASS);
+  }
+
   async saveSettings(): Promise<void> {
     await this.saveData(this.settings);
+    this.applyPalette();
     this.rerenderOpenNotes();
   }
 
@@ -116,6 +132,7 @@ export default class SkissPlugin extends Plugin {
    */
   async onExternalSettingsChange(): Promise<void> {
     this.settings = readSettings(await this.loadData());
+    this.applyPalette();
     this.rerenderOpenNotes();
   }
 
@@ -139,6 +156,21 @@ export default class SkissPlugin extends Plugin {
         return true;
       },
     });
+  }
+
+  /**
+   * The vivid palette is a class on the body rather than a stylesheet the
+   * plugin swaps: `styles.css` ships both palettes, the calm one unscoped and
+   * the vivid one under this class, so a change of palette is a class added or
+   * removed and every block on screen follows it in the same frame — the
+   * editor never reads it at all, which is why it is not in the extension.
+   */
+  private applyPalette(): void {
+    if (this.settings.highlightColours === 'vivid') {
+      document.body.addClass(VIVID_BODY_CLASS);
+    } else {
+      document.body.removeClass(VIVID_BODY_CLASS);
+    }
   }
 
   /**

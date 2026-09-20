@@ -69,7 +69,12 @@ Planet   ? do moons get their own class
 `;
 
 // The settings a reader starts with: everything the block carries is shown.
-const ALL_ON: SkissSettings = { showWarnings: true, showQuestions: true, showComments: true };
+const ALL_ON: SkissSettings = {
+  showWarnings: true,
+  showQuestions: true,
+  showComments: true,
+  highlightColours: 'calm',
+};
 
 async function renderInto(
   source: string,
@@ -371,6 +376,8 @@ describe('what the settings hide', () => {
       showWarnings: false,
       showQuestions: false,
       showComments: false,
+      // The palette is the editor's; what a block renders as is the same either way.
+      highlightColours: 'off',
     });
 
     expect(el.children.map((child) => child.className)).toEqual(['skiss-diagram']);

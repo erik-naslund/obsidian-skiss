@@ -2,6 +2,7 @@ import type { App } from 'obsidian';
 import { describe, expect, it, vi } from 'vitest';
 import {
   DEFAULT_SETTINGS,
+  type HighlightColours,
   readSettings,
   type SkissSettings,
   type SkissSettingsOwner,
@@ -43,39 +44,46 @@ function openTab(settings: SkissSettings = { ...DEFAULT_SETTINGS }): {
 }
 
 /** One row of the tab as these tests read it: what it says and what it edits. */
-interface Toggle {
+interface Control {
   name: string;
   desc: string | DocumentFragment | undefined;
+  type: string;
   key: string;
-  defaultValue: boolean | undefined;
+  defaultValue: unknown;
+  /** What a dropdown offers, in the order it offers it. A toggle has none. */
+  options: Record<string, string> | undefined;
 }
 
 /**
- * The toggles the tab describes, in order. A definition that is not a toggle
- * fails here rather than quietly reading as one: the tab has three toggles and
- * nothing else.
+ * Every row the tab describes, in order. A definition carrying no control
+ * fails here rather than quietly reading as one: every row of this tab edits a
+ * setting.
  */
-function toggles(tab: SkissSettingTab): Toggle[] {
+function controls(tab: SkissSettingTab): Control[] {
   return tab.getSettingDefinitions().map((definition) => {
     if (!('control' in definition) || definition.control === undefined) {
       throw new Error('the tab describes an item that carries no control');
     }
     const control = definition.control;
-    if (control.type !== 'toggle') {
-      throw new Error(`the tab describes a ${control.type}, not a toggle`);
-    }
     return {
       name: definition.name,
       desc: definition.desc,
+      type: control.type,
       key: control.key,
       defaultValue: control.defaultValue,
+      options: control.type === 'dropdown' ? control.options : undefined,
     };
   });
 }
 
-/** The toggle the tab shows under `name`. */
-function toggle(tab: SkissSettingTab, name: string): Toggle {
-  const found = toggles(tab).find((candidate) => candidate.name === name);
+/** The toggles among them, in the order the tab lists them. */
+function toggles(tab: SkissSettingTab): Control[] {
+  return controls(tab).filter((control) => control.type === 'toggle');
+}
+
+/** The row the tab shows under `name`, whatever kind of control it carries. */
+function toggle(tab: SkissSettingTab, name: string): Control {
+  const found = controls(tab).find((candidate) => candidate.name === name);
   if (found === undefined) {
     throw new Error(`the tab has no row named ${name}`);
   }
@@ -88,6 +96,7 @@ describe('the settings a vault holds', () => {
       showWarnings: true,
       showQuestions: true,
       showComments: true,
+      highlightColours: 'calm',
     });
   });
 
@@ -104,6 +113,7 @@ describe('the settings a vault holds', () => {
       showWarnings: false,
       showQuestions: true,
       showComments: true,
+      highlightColours: 'calm',
     });
   });
 
@@ -116,6 +126,45 @@ describe('the settings a vault holds', () => {
     settings.showQuestions = false;
 
     expect(DEFAULT_SETTINGS.showQuestions).toBe(true);
+  });
+});
+
+describe('the palette a vault holds', () => {
+  it('is calm for an install whose data.json predates the setting', () => {
+    // The file of a 0.3.1 vault: three flags and no palette at all.
+    expect(readSettings({ showWarnings: false, showQuestions: true, showComments: true })).toEqual({
+      showWarnings: false,
+      showQuestions: true,
+      showComments: true,
+      highlightColours: 'calm',
+    });
+  });
+
+  it.each<[HighlightColours]>([['calm'], ['vivid'], ['off']])(
+    'keeps %s, which is a palette the dropdown offers',
+    (colours) => {
+      expect(readSettings({ highlightColours: colours }).highlightColours).toBe(colours);
+    },
+  );
+
+  it.each<[string, unknown]>([
+    ['a string that names no palette', 'muted'],
+    ['a palette that was renamed away', 'vivid-dark'],
+    ['a value that is not a string', true],
+    ['a null', null],
+    // `hasOwn` rather than a lookup: an inherited name is not an option.
+    ['a name Object.prototype carries', 'constructor'],
+  ])('leaves calm standing for %s', (_name, stored) => {
+    expect(readSettings({ highlightColours: stored }).highlightColours).toBe('calm');
+  });
+
+  it('takes the palette and the flags together', () => {
+    expect(readSettings({ showComments: false, highlightColours: 'off' })).toEqual({
+      showWarnings: true,
+      showQuestions: true,
+      showComments: false,
+      highlightColours: 'off',
+    });
   });
 });
 
@@ -142,7 +191,12 @@ describe('the settings tab', () => {
   });
 
   it('opens each toggle at what the plugin holds', () => {
-    const { tab } = openTab({ showWarnings: false, showQuestions: true, showComments: false });
+    const { tab } = openTab({
+      showWarnings: false,
+      showQuestions: true,
+      showComments: false,
+      highlightColours: 'calm',
+    });
 
     expect(tab.getControlValue('showWarnings')).toBe(false);
     expect(tab.getControlValue('showQuestions')).toBe(true);
@@ -164,6 +218,7 @@ describe('the settings tab', () => {
       showWarnings: true,
       showQuestions: false,
       showComments: true,
+      highlightColours: 'calm',
     });
     // Saving is what re-renders the open notes, so the blocks follow the toggle.
     expect(owner.saveSettings).toHaveBeenCalledTimes(1);
@@ -185,6 +240,81 @@ describe('the settings tab', () => {
     const { tab, owner } = openTab();
 
     await tab.setControlValue(key, value);
+
+    expect(owner.settings).toEqual(DEFAULT_SETTINGS);
+    expect(owner.saveSettings).not.toHaveBeenCalled();
+  });
+});
+
+describe('the palette dropdown', () => {
+  /** The row the palette is edited from: the fourth, after the three toggles. */
+  function palette(tab: SkissSettingTab): Control {
+    return toggle(tab, 'Highlight colours');
+  }
+
+  it('is a dropdown, and comes after the three toggles', () => {
+    const { tab } = openTab();
+
+    expect(controls(tab).map((each) => [each.name, each.type])).toEqual([
+      ['Show warnings', 'toggle'],
+      ['Show open questions', 'toggle'],
+      ['Show comments', 'toggle'],
+      ['Highlight colours', 'dropdown'],
+    ]);
+  });
+
+  it('offers the three palettes, calm first and by default', () => {
+    const { tab } = openTab();
+
+    expect(palette(tab).options).toEqual({ calm: 'Calm', vivid: 'Vivid', off: 'Off' });
+    // The order the dropdown lists them in, which the object's own order is.
+    expect(Object.keys(palette(tab).options ?? {})).toEqual(['calm', 'vivid', 'off']);
+    expect(palette(tab).key).toBe('highlightColours');
+    expect(palette(tab).defaultValue).toBe('calm');
+  });
+
+  it('says where a reader goes for colours of their own', () => {
+    const { tab } = openTab();
+
+    expect(palette(tab).desc).toContain('.cm-skiss-*');
+    expect(palette(tab).desc).toContain('CSS snippet');
+  });
+
+  it('opens at the palette the plugin holds', () => {
+    const { tab } = openTab({ ...DEFAULT_SETTINGS, highlightColours: 'off' });
+
+    expect(tab.getControlValue('highlightColours')).toBe('off');
+  });
+
+  it.each<[HighlightColours]>([['vivid'], ['off'], ['calm']])(
+    'writes %s to the plugin and saves it',
+    async (colours) => {
+      const { tab, owner } = openTab();
+
+      await tab.setControlValue('highlightColours', colours);
+
+      expect(owner.settings.highlightColours).toBe(colours);
+      // Saving is what puts the body class and the extension in step with it.
+      expect(owner.saveSettings).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('leaves the flags alone', async () => {
+    const { tab, owner } = openTab();
+
+    await tab.setControlValue('highlightColours', 'vivid');
+
+    expect(owner.settings).toEqual({ ...DEFAULT_SETTINGS, highlightColours: 'vivid' });
+  });
+
+  it.each<[string, unknown]>([
+    ['a palette it does not offer', 'muted'],
+    ['a value that is not a string', true],
+    ['nothing at all', undefined],
+  ])('writes nothing and saves nothing for %s', async (_name, value) => {
+    const { tab, owner } = openTab();
+
+    await tab.setControlValue('highlightColours', value);
 
     expect(owner.settings).toEqual(DEFAULT_SETTINGS);
     expect(owner.saveSettings).not.toHaveBeenCalled();

@@ -50,13 +50,22 @@
 /* Live Preview: the lines of a `skiss` fence, coloured by what they are.
    Obsidian's own `--code-*` variables and nothing else, so a theme that
    restyles code blocks restyles these along with them. Colour only: no weight,
-   no size and no font, so a line is the same shape whatever it says. */
+   no size and no font, so a line is the same shape whatever it says.
+
+   This is the calm palette, what a block looks like unless the reader chose
+   otherwise. A skiss line is almost all names and marks with little neutral
+   text to rest on, so what a reader has already read stays in the code block's
+   own colour and only what says what a thing *is* carries one. *Vivid*, the
+   palette the plugin shipped before it, is further down under its own class. */
 .cm-skiss-class {
-  color: var(--code-function);
+  color: var(--code-property);
 }
 
+/* The most frequent thing on a block, and the note's own word: it reads as
+   text, which is what leaves the class name above it something to stand out
+   against. */
 .cm-skiss-field {
-  color: var(--code-property);
+  color: var(--code-normal);
 }
 
 .cm-skiss-system {
@@ -77,9 +86,8 @@
   color: var(--code-value);
 }
 
-.cm-skiss-operator {
-  color: var(--code-operator);
-}
+/* No rule for `.cm-skiss-operator`: `:`, `[]`, `|` and `<` take the colour of
+   the text around them, so a field line is not three colours long. */
 
 /* The `*` that marks the identifier: the one mark that changes what a class is. */
 .cm-skiss-marker {
@@ -95,6 +103,23 @@
    as it is in the list below the diagram. */
 .cm-skiss-doubt {
   color: var(--code-normal);
+}
+
+/* *Vivid*, for a block that should read like code: the palette of 0.3.x, which
+   colours the names too and gives the operators between them their own colour.
+   `main.ts` puts the class on the body while the setting says so. Only the
+   three rules that differ are here; the rest of the palette is the calm rules
+   above, which this scope leaves standing. */
+body.skiss-vivid .cm-skiss-class {
+  color: var(--code-function);
+}
+
+body.skiss-vivid .cm-skiss-field {
+  color: var(--code-property);
+}
+
+body.skiss-vivid .cm-skiss-operator {
+  color: var(--code-operator);
 }
 
 /* The diagnostics gutter. It is added to every editor, so it carries no
