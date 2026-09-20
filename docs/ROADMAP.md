@@ -11,10 +11,10 @@ exports to LinkML and to Mermaid, to a file next to it or to the clipboard.
 3. ~~Export commands: LinkML and Mermaid, to a new file or to the clipboard.~~
 4. ~~First tagged release, installable via BRAT.~~
 
-## Milestone 2: In the list — in progress
+## Milestone 2: In the list — done, 0.2.1
 
-Community plugin submission and whatever the review asks for. The guideline
-pass and the post-review fixes are done; the submission is with the reviewers.
+Submitted through the community directory on 2026-09-16; its scan asked for
+four things (#41), 0.2.1 carried them, and the review completed on 2026-09-17.
 
 ## Milestone 3: Editing comfort
 

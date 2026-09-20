@@ -99,10 +99,11 @@ who wants to know where the file came from.
 [slsa]: https://slsa.dev/spec/v1.0/provenance
 [sigstore]: https://www.sigstore.dev/
 
-## 3. Install it with BRAT
+## 3. Install a pre-release with BRAT
 
-The plugin is not in the community plugin list yet, so it installs through
-[BRAT](https://github.com/TfTHacker/obsidian42-brat), which installs plugins
+The plugin is in the community plugin list, which is how users install it and
+how it updates. [BRAT](https://github.com/TfTHacker/obsidian42-brat) is for
+trying a release before the directory has picked it up: it installs plugins
 straight from a GitHub release.
 
 1. **Settings → Community plugins**, turn off Restricted mode if it is on,
