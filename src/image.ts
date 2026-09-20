@@ -52,7 +52,10 @@ export async function diagramPng(svg: string): Promise<Blob> {
 
 async function rasterise(svg: string, image: HTMLImageElement): Promise<Blob> {
   const { width, height } = sizeOf(svg, image);
-  const canvas = document.createElement('canvas');
+  // Obsidian's `createEl`, not `document.createElement`: the community
+  // directory's scan flags the latter (prefer-create-el), and the helper is
+  // what the rest of the plugin builds elements with. Nothing attaches it.
+  const canvas = createEl('canvas');
   canvas.width = Math.round(width * PIXEL_RATIO);
   canvas.height = Math.round(height * PIXEL_RATIO);
 

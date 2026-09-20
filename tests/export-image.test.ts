@@ -51,20 +51,18 @@ const writeText = vi.fn((_text: string) => Promise.resolve());
 const write = vi.fn((_items: unknown[]) => Promise.resolve());
 
 /**
- * `document`, `Image`, `ClipboardItem` and `navigator` are browser globals
- * inside Obsidian; a test run has to supply them, fresh for each test so that
- * one that takes a global away leaves the next one alone. `Blob` and
- * `URL.createObjectURL` are Node's own, so the blobs the export passes around
- * are real ones and `arrayBuffer()` is theirs.
+ * `createEl` (Obsidian's global element helper), `Image`, `ClipboardItem` and
+ * `navigator` are globals inside Obsidian; a test run has to supply them, fresh
+ * for each test so that one that takes a global away leaves the next one alone.
+ * `Blob` and `URL.createObjectURL` are Node's own, so the blobs the export
+ * passes around are real ones and `arrayBuffer()` is theirs.
  */
 function stubBrowser(): void {
-  vi.stubGlobal('document', {
-    createElement: (_tag: string): StubCanvas => {
-      const canvas = new StubCanvas();
-      prepareCanvas(canvas);
-      canvases.push(canvas);
-      return canvas;
-    },
+  vi.stubGlobal('createEl', (_tag: string): StubCanvas => {
+    const canvas = new StubCanvas();
+    prepareCanvas(canvas);
+    canvases.push(canvas);
+    return canvas;
   });
   vi.stubGlobal('Image', StubImage);
   vi.stubGlobal('ClipboardItem', StubClipboardItem);
