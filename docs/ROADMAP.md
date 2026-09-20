@@ -16,10 +16,13 @@ exports to LinkML and to Mermaid, to a file next to it or to the clipboard.
 Submitted through the community directory on 2026-09-16; its scan asked for
 four things (#41), 0.2.1 carried them, and the review completed on 2026-09-17.
 
-## Milestone 3: Editing comfort
+## Milestone 3: Editing comfort — in progress
 
-Syntax highlighting as a CodeMirror 6 extension. Diagnostics as gutter markers instead of a list. Both wait until milestone 1 has been used for a while.
+What workshop use asked for. In order:
+
+1. **Export the diagram as SVG and PNG**, to a file next to the note or to the clipboard ([#45](https://github.com/erik-naslund/obsidian-skiss/issues/45)).
+2. **Syntax highlighting and gutter diagnostics in Live Preview**, as a CodeMirror 6 extension ([#46](https://github.com/erik-naslund/obsidian-skiss/issues/46)).
 
 ## Not in this repository
 
-A visual editor where boxes can be moved and the text follows is a separate project. This plugin renders; it does not edit.
+A web editor with a live split pane, pan and zoom, is scoped in [skiss #65](https://github.com/erik-naslund/skiss/issues/65) and gets its own repository. A visual editor where boxes can be moved and the text follows belongs there too. This plugin renders; it does not edit.
