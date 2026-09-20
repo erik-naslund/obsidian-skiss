@@ -7,8 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-20
+
+The diagram as a picture, the block coloured as you type it with the
+compiler's diagnostics in the gutter, and inheritance drawn. Built on
+`@eriknaslund/skiss` 0.5.0.
+
 ### Added
 
+- **Inheritance draws.** `Child < Parent` on a class line renders as the
+  class-diagram arrow from the parent, and the child's box shows only its own
+  fields (Skiss specification 0.3, via `@eriknaslund/skiss` 0.5.0).
 - **Syntax highlighting and gutter diagnostics in Live Preview.** The lines of
   a `skiss` block are coloured as you type them — class and field names, types,
   the `@` systems, the enums, the operators and the `#` and `?` trailers —
@@ -175,7 +184,8 @@ shape.
 - **Installable with [BRAT](https://github.com/TfTHacker/obsidian42-brat)** from
   `erik-naslund/obsidian-skiss`. Not in the community plugin list yet.
 
-[Unreleased]: https://github.com/erik-naslund/obsidian-skiss/compare/0.2.1...HEAD
+[Unreleased]: https://github.com/erik-naslund/obsidian-skiss/compare/0.3.0...HEAD
+[0.3.0]: https://github.com/erik-naslund/obsidian-skiss/compare/0.2.1...0.3.0
 [0.2.1]: https://github.com/erik-naslund/obsidian-skiss/compare/0.2.0...0.2.1
 [0.2.0]: https://github.com/erik-naslund/obsidian-skiss/compare/0.1.1...0.2.0
 [0.1.1]: https://github.com/erik-naslund/obsidian-skiss/releases/tag/0.1.1
