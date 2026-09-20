@@ -10,6 +10,32 @@ const IMAGE_FAILED = 'the diagram could not be loaded as an image';
 const NO_CANVAS = 'this device gave no canvas to draw the PNG on';
 const NO_SIZE = 'the diagram has no size to rasterise';
 const NO_PNG = 'the canvas produced no PNG';
+const NOT_RASTERISABLE = 'the diagram could not be rasterised on this device';
+
+/**
+ * Prepended to the Mermaid text the export draws, and to that text only.
+ *
+ * Mermaid writes its labels as HTML inside `<foreignObject>` by default. An SVG
+ * carrying one taints the canvas it is drawn on, and `toBlob` then throws a
+ * `SecurityError` instead of handing back a PNG, so every PNG export of a
+ * diagram with a label failed (#51). Off, the labels are plain SVG `<text>`,
+ * which taints no canvas and which drawing tools that do not render
+ * `foreignObject` — Illustrator, Inkscape, Keynote — open correctly.
+ *
+ * Two keys, because a class diagram draws its labels through two of Mermaid's:
+ * the class boxes read the root `htmlLabels`, and the arrow labels read
+ * `flowchart.htmlLabels`, which is the shared edge-label helper's. The
+ * diagram-specific `class.htmlLabels` the config schema carries is read by no
+ * 11.x and is left out. Checked against Mermaid 11.4, 11.6, 11.9, 11.12 and
+ * 11.17 in Chromium: with both keys the SVG carries no `foreignObject` and
+ * `toBlob` hands back a PNG; with either missing it still throws.
+ *
+ * A directive rather than `mermaid.initialize`: `render` reads the directives
+ * of the text it is given, resets the configuration before each render, and
+ * keeps neither key for `initialize` alone. The block in the note is drawn by
+ * its own call and is unchanged.
+ */
+const PLAIN_LABELS = '%%{init: {"htmlLabels": false, "flowchart": {"htmlLabels": false}}}%%';
 
 /**
  * How many image pixels the PNG carries per diagram pixel. Fixed rather than
@@ -32,7 +58,10 @@ let diagramsRendered = 0;
 export async function diagramSvg(mermaidText: string): Promise<string> {
   diagramsRendered += 1;
   const mermaid = (await loadMermaid()) as Mermaid;
-  const { svg } = await mermaid.render(`skiss-export-${diagramsRendered}`, mermaidText);
+  const { svg } = await mermaid.render(
+    `skiss-export-${diagramsRendered}`,
+    `${PLAIN_LABELS}\n${mermaidText}`,
+  );
   return svg;
 }
 
@@ -120,15 +149,58 @@ function loadImage(url: string): Promise<HTMLImageElement> {
   });
 }
 
-/** `toBlob` is the callback form of every canvas; this is it as a promise. */
+/**
+ * `toBlob` is the callback form of every canvas; this is it as a promise. It
+ * also throws, rather than calling back, where the browser refuses to read the
+ * canvas at all, so the call is guarded.
+ */
 function toPng(canvas: HTMLCanvasElement): Promise<Blob> {
   return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (blob === null) {
-        reject(new Error(NO_PNG));
-      } else {
-        resolve(blob);
-      }
-    }, 'image/png');
+    try {
+      canvas.toBlob((blob) => {
+        if (blob === null) {
+          reject(new Error(NO_PNG));
+        } else {
+          resolve(blob);
+        }
+      }, 'image/png');
+    } catch (error) {
+      reject(rasterisationError(error));
+    }
   });
+}
+
+/**
+ * What the notice says about a canvas the browser would not hand back. A
+ * `SecurityError` is a canvas it considers tainted — "Tainted canvases may not
+ * be exported" names no device and asks for nothing the user could do — so the
+ * sentence that does comes first and the browser's own wording follows it.
+ * Anything else reaches the notice as it is.
+ */
+function rasterisationError(error: unknown): Error {
+  if (nameOf(error) !== 'SecurityError') {
+    return error instanceof Error ? error : new Error(String(error));
+  }
+  return new Error(`${NOT_RASTERISABLE}: ${messageOf(error)}`);
+}
+
+/**
+ * The `name` and the `message` of a thrown value, read off it rather than
+ * through `instanceof Error`: a `DOMException` is what a canvas throws, and
+ * whether that counts as an `Error` is the engine's answer, not ours.
+ */
+function nameOf(error: unknown): string {
+  return propertyOf(error, 'name');
+}
+
+function messageOf(error: unknown): string {
+  return propertyOf(error, 'message') || String(error);
+}
+
+function propertyOf(error: unknown, key: 'name' | 'message'): string {
+  if (typeof error !== 'object' || error === null || !(key in error)) {
+    return '';
+  }
+  const value: unknown = Reflect.get(error, key);
+  return typeof value === 'string' ? value : '';
 }

@@ -50,6 +50,8 @@ The file commands always write to the note's own sibling: `<note>.linkml.yaml`, 
 
 **An exported image is not put into the note.** Showing the picture in the note is yours to write, as an embed of the file the export wrote: `![[<note>.png]]`. The export never edits the note it was run from.
 
+An exported image carries plain text labels rather than the HTML ones the block is drawn with, so the PNG rasterises everywhere and the SVG opens as it should in drawing tools that do not render `foreignObject` — Illustrator, Inkscape, Keynote.
+
 The PNG is the diagram at twice its own size, on a transparent background, so it reads as well in a dark theme as in a light one and survives being scaled up a little. On a device whose webview cannot put an image on the clipboard — some mobile ones cannot — **Export PNG to clipboard** says so and copies nothing; **Export PNG to new file** works there as everywhere else.
 
 ## Disclosures

@@ -109,6 +109,12 @@ export class StubCanvas {
   blob: Blob | null = new Blob(['png'], { type: 'image/png' });
   requestedType: string | undefined = undefined;
 
+  /**
+   * What `toBlob` throws instead of calling back, as a browser does for a
+   * canvas it will not read back — a tainted one above all.
+   */
+  throws: unknown = undefined;
+
   getContext(type: string): StubContext | null {
     this.requestedContext = type;
     return this.hasContext ? this.context : null;
@@ -116,6 +122,9 @@ export class StubCanvas {
 
   toBlob(callback: (blob: Blob | null) => void, type?: string): void {
     this.requestedType = type;
+    if (this.throws !== undefined) {
+      throw this.throws;
+    }
     callback(this.blob);
   }
 }

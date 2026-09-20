@@ -89,7 +89,20 @@ const WITH_WARNING = '```skiss\nCharacter\n  id*\n```\n\n```skiss\nPlanet\n  rul
 
 /** The diagram size in the SVG's `viewBox`, and the PNG that follows from it. */
 const DIAGRAM = { width: 320, height: 180 };
+
+/**
+ * The init directive the export prepends so Mermaid draws plain `<text>`
+ * labels instead of HTML in a `<foreignObject>`: an SVG carrying one taints
+ * the canvas it is drawn on and no PNG comes back off it (#51). Spelled out
+ * here rather than imported, so a change to the directive — the class boxes'
+ * key or the arrow labels' — is a change a test has to agree to.
+ */
+const PLAIN_LABELS = '%%{init: {"htmlLabels": false, "flowchart": {"htmlLabels": false}}}%%';
 const PIXEL_RATIO = 2;
+
+/** The message Chromium puts on the `SecurityError` a tainted canvas throws. */
+const TAINTED =
+  "Failed to execute 'toBlob' on 'HTMLCanvasElement': Tainted canvases may not be exported.";
 
 let objectUrls: string[] = [];
 let revoked: string[] = [];
@@ -158,7 +171,7 @@ describe('what the image exports draw', () => {
     await runExport(vault, 'Note.md', NOTE, 'svg', 'file');
 
     const drawn = mermaidRender.mock.calls[0]?.[1];
-    expect(drawn).toBe(mermaidOf([CHARACTER.trimEnd(), PLANET.trimEnd()]));
+    expect(drawn).toBe(`${PLAIN_LABELS}\n${mermaidOf([CHARACTER.trimEnd(), PLANET.trimEnd()])}`);
     // Both blocks reached one diagram, as the Mermaid export compiles them.
     expect(drawn).toContain('Character');
     expect(drawn).toContain('Planet');
@@ -186,6 +199,25 @@ describe('what the image exports draw', () => {
     expect(notices).toEqual(['Export failed: Parse error on line 1']);
     expect(vault.created).toEqual([]);
   });
+});
+
+describe('the labels the export draws', () => {
+  it.each(['svg', 'png'] as const)(
+    'asks Mermaid for plain labels, on its own first line (%s)',
+    async (format) => {
+      const vault = new StubVault();
+
+      await runExport(vault, 'Note.md', NOTE, format, 'file');
+
+      const drawn = mermaidRender.mock.calls[0]?.[1] ?? '';
+      // The directive is a line of its own above the diagram, which is where
+      // Mermaid reads one, and the diagram text below it is untouched.
+      expect(drawn.split('\n')[0]).toBe(PLAIN_LABELS);
+      expect(drawn.slice(PLAIN_LABELS.length + 1)).toBe(
+        mermaidOf([CHARACTER.trimEnd(), PLANET.trimEnd()]),
+      );
+    },
+  );
 });
 
 describe('the SVG export', () => {
@@ -381,6 +413,34 @@ describe('the PNG export', () => {
 
     expect(notices).toEqual(['Export failed: this device gave no canvas to draw the PNG on']);
     expect(vault.createdBinary).toEqual([]);
+  });
+
+  it('says a tainted canvas could not be rasterised here, with the browser wording', async () => {
+    const vault = new StubVault();
+    // What Chromium throws from `toBlob` for a canvas it will not read back.
+    // A `DOMException` in name and message, built here as one, because jsdom
+    // hands the plugin no canvas to taint.
+    prepareCanvas = (canvas) => {
+      canvas.throws = Object.assign(new Error(TAINTED), { name: 'SecurityError' });
+    };
+
+    await runExport(vault, 'Note.md', NOTE, 'png', 'file');
+
+    expect(notices).toEqual([
+      `Export failed: the diagram could not be rasterised on this device: ${TAINTED}`,
+    ]);
+    expect(vault.createdBinary).toEqual([]);
+  });
+
+  it('reports any other failure of the canvas in its own words', async () => {
+    const vault = new StubVault();
+    prepareCanvas = (canvas) => {
+      canvas.throws = new Error('out of memory');
+    };
+
+    await runExport(vault, 'Note.md', NOTE, 'png', 'file');
+
+    expect(notices).toEqual(['Export failed: out of memory']);
   });
 
   it('reports a canvas that produced no PNG', async () => {
