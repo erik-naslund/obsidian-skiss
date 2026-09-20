@@ -31,12 +31,12 @@ In Reading view, and in Live Preview when the cursor is outside the block, that 
 ## What it does
 
 - **Renders `skiss` code blocks** as class diagrams, using the Mermaid that ships with Obsidian.
-- **Colours the block while you write in it.** Wherever the block shows its text — in Live Preview once the cursor is in it, and in source mode always — class and field names, types, the `@` systems, the enums, the operators and the `#` and `?` trailers take the colours your theme gives code. The block stays plain text you can type in: nothing is replaced by a widget.
+- **Colours the block while you write in it.** Wherever the block shows its text — in Live Preview once the cursor is in it, and in source mode always — the block is coloured in the colours your theme gives code. The default palette is a calm one: the class names, the `@` systems, the primitives and the enums carry a colour, the field names and the types are left as plain text, the `?` questions with them, and the `:`, `[]` and `|` between the words take the colour of the text around them. *Vivid*, under **Highlight colours** in the settings, is the louder palette of earlier releases, where the names and the operators are coloured too; *Off* leaves the block in one colour and keeps the gutter markers. The block stays plain text you can type in whichever you choose: nothing is replaced by a widget.
 - **Marks the diagnostics in the gutter** beside the lines they are about, in that same view: red for an error, yellow for a warning, and the compiler's own wording when you hover one. *Show warnings* turns the yellow ones off; errors are always marked.
 - **Shows diagnostics** below the diagram instead of failing: an unknown type, a class you referenced but have not written yet, a line it could not read. Each one names the line of the note it is about.
 - **Lists the open questions and the comments** of the block below the diagram: the `?` questions under "Open questions" and the `#` descriptions under "Comments", each saying what carries it.
 - **Exports the note**, with eight commands. Four write a file next to the note — **Skiss: Export LinkML to new file**, **Export Mermaid to new file**, **Export SVG to new file** and **Export PNG to new file** — and four put the same thing on the clipboard: **Export LinkML to clipboard**, **Export Mermaid to clipboard**, **Export SVG to clipboard** and **Export PNG to clipboard**. Every `skiss` block in the note is exported together, as one schema and one diagram; the SVG and the PNG are that diagram, drawn by the same Mermaid the block is rendered with.
-- **Three settings**, all on by default, in Settings → Community plugins → Skiss: *Show warnings*, *Show open questions* and *Show comments*. They decide what is listed below the diagram when you want a quiet note to present from, and *Show warnings* decides the gutter markers in Live Preview with it. Errors are not among them: a block that fails to compile must never look fine.
+- **Four settings**, in Settings → Community plugins → Skiss. Three are on by default: *Show warnings*, *Show open questions* and *Show comments*. They decide what is listed below the diagram when you want a quiet note to present from, and *Show warnings* decides the gutter markers in Live Preview with it. The fourth, *Highlight colours*, chooses the palette the block is written in — *Calm*, *Vivid* or *Off*. Errors are not among any of them: a block that fails to compile must never look fine.
 
 Nothing else. The language, the parser and the LinkML generator live in the [`skiss`](https://github.com/erik-naslund/skiss) package. This plugin is the thinnest possible layer over it.
 
@@ -53,6 +53,41 @@ The file commands always write to the note's own sibling: `<note>.linkml.yaml`, 
 An exported image carries plain text labels rather than the HTML ones the block is drawn with, so the PNG rasterises everywhere and the SVG opens as it should in drawing tools that do not render `foreignObject` — Illustrator, Inkscape, Keynote.
 
 The PNG is the diagram at twice its own size, on a transparent background, so it reads as well in a dark theme as in a light one and survives being scaled up a little. On a device whose webview cannot put an image on the clipboard — some mobile ones cannot — **Export PNG to clipboard** says so and copies nothing; **Export PNG to new file** works there as everywhere else.
+
+### Your own colours
+
+The palettes are the plugin's stylesheet and nothing more, so your own colours are a CSS snippet: **Settings → Appearance → CSS snippets**, a `.css` file in the vault's `snippets` folder, enabled with the toggle beside it. A snippet loads after the plugin's stylesheet, so a rule of yours wins over the plugin's without having to shout `!important` at it.
+
+Each run of a line carries a class of its own:
+
+| Class | What it covers |
+|---|---|
+| `.cm-skiss-class` | A class name, wherever one is written or referenced. |
+| `.cm-skiss-field` | A field name. |
+| `.cm-skiss-system` | An `@System` on a class line. |
+| `.cm-skiss-primitive` | A type the language knows: `string`, `int`, `date` and the rest. |
+| `.cm-skiss-type` | A lowercase type it does not know, which compiles to `string` with a warning. |
+| `.cm-skiss-enum` | A value of an inline `a\|b\|c` enum. |
+| `.cm-skiss-operator` | The marks between them: `:`, `[]`, `\|`, `<`, `=` and the `.` of a join. |
+| `.cm-skiss-marker` | The `*` that marks the identifier. |
+| `.cm-skiss-description` | A `#` trailer, the `#` included. |
+| `.cm-skiss-doubt` | A `?` trailer, the `?` included. |
+| `.cm-skiss-comment` | A whole `#` line. |
+
+A snippet that gives class names the colour of a string and lets descriptions read as ordinary text:
+
+```css
+/* skiss.css — my own colours for skiss blocks. */
+.cm-skiss-class {
+  color: var(--code-string);
+}
+
+.cm-skiss-description {
+  color: inherit;
+}
+```
+
+Those rules hold for *Calm* and for *Vivid* alike. To restyle only the vivid palette, put `body.skiss-vivid` in front of the class — that is the class the plugin puts on the body while *Vivid* is chosen, and the scope its own vivid rules are written under.
 
 ## Disclosures
 

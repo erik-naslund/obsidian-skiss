@@ -110,6 +110,26 @@ vi.mock('obsidian', async () => {
 const writeText = vi.fn((_text: string) => Promise.resolve());
 vi.stubGlobal('navigator', { clipboard: { writeText } });
 
+/**
+ * The body the plugin puts the vivid palette on. `addClass` and `removeClass`
+ * are Obsidian's own helpers on an element rather than the DOM's `classList`,
+ * so the double carries those two and the set they edit, and nothing else.
+ */
+const body = {
+  classes: new Set<string>(),
+  addClass(...classes: string[]): void {
+    for (const cls of classes) {
+      body.classes.add(cls);
+    }
+  },
+  removeClass(...classes: string[]): void {
+    for (const cls of classes) {
+      body.classes.delete(cls);
+    }
+  },
+};
+vi.stubGlobal('document', { body });
+
 const MANIFEST = {} as unknown as PluginManifest;
 const BLOCK = '```skiss\nCharacter\n  id*\n```\n';
 
@@ -218,6 +238,7 @@ function check(command: Command, checking: boolean): unknown {
 }
 
 beforeEach(() => {
+  body.classes.clear();
   commands.length = 0;
   editorExtensions.length = 0;
   processors.length = 0;
@@ -351,6 +372,7 @@ describe('the settings', () => {
       showWarnings: true,
       showQuestions: true,
       showComments: true,
+      highlightColours: 'calm',
     });
   });
 
@@ -381,7 +403,9 @@ describe('the settings', () => {
     plugin.settings.showQuestions = false;
     await plugin.saveSettings();
 
-    expect(saved).toEqual([{ showWarnings: true, showQuestions: false, showComments: true }]);
+    expect(saved).toEqual([
+      { showWarnings: true, showQuestions: false, showComments: true, highlightColours: 'calm' },
+    ]);
   });
 
   it('re-renders every open note when the settings change', async () => {
@@ -410,6 +434,82 @@ describe('the settings', () => {
       'Comments',
       'Character: a person or droid',
     ]);
+  });
+});
+
+describe('the highlight palette on the body', () => {
+  const VIVID = 'skiss-vivid';
+
+  /** What Obsidian Sync writes into `data.json` behind the plugin's back. */
+  function storeExternally(plugin: SkissPlugin, stored: unknown): void {
+    (plugin as unknown as Recorded).stored = stored;
+  }
+
+  it('leaves the body alone on a vault that has chosen no palette', async () => {
+    await load();
+
+    // Calm is the stylesheet unscoped, so a calm vault needs no class at all.
+    expect([...body.classes]).toEqual([]);
+  });
+
+  it('carries the class from the moment it loads a vault that holds vivid', async () => {
+    await load(new StubFile('Note.md', BLOCK), { stored: { highlightColours: 'vivid' } });
+
+    expect(body.classes.has(VIVID)).toBe(true);
+  });
+
+  it('adds the class when vivid is chosen and takes it off again when calm is', async () => {
+    const { plugin } = await load();
+
+    plugin.settings.highlightColours = 'vivid';
+    await plugin.saveSettings();
+    expect(body.classes.has(VIVID)).toBe(true);
+
+    plugin.settings.highlightColours = 'calm';
+    await plugin.saveSettings();
+    expect(body.classes.has(VIVID)).toBe(false);
+  });
+
+  it('takes the class off for off, which is no palette rather than a quiet one', async () => {
+    const { plugin } = await load(new StubFile('Note.md', BLOCK), {
+      stored: { highlightColours: 'vivid' },
+    });
+
+    plugin.settings.highlightColours = 'off';
+    await plugin.saveSettings();
+
+    expect(body.classes.has(VIVID)).toBe(false);
+  });
+
+  it('follows the palette another device chose', async () => {
+    const { plugin } = await load();
+    storeExternally(plugin, { highlightColours: 'vivid' });
+
+    await plugin.onExternalSettingsChange();
+
+    expect(body.classes.has(VIVID)).toBe(true);
+  });
+
+  it('leaves nothing on the body when the plugin unloads', async () => {
+    const { plugin } = await load(new StubFile('Note.md', BLOCK), {
+      stored: { highlightColours: 'vivid' },
+    });
+
+    plugin.onunload();
+
+    expect([...body.classes]).toEqual([]);
+  });
+
+  it('builds the extension again for a palette change, so off reaches the open notes', async () => {
+    const { plugin, updateOptions } = await load();
+    const extension = editorExtensions[0];
+    const before = extension?.[0];
+
+    plugin.settings.highlightColours = 'off';
+    await plugin.saveSettings();
+
+    expect(extension?.[0]).not.toBe(before);
+    expect(updateOptions).toHaveBeenCalled();
   });
 });
 
@@ -472,6 +572,7 @@ describe('a settings change from another device', () => {
       showWarnings: true,
       showQuestions: false,
       showComments: true,
+      highlightColours: 'calm',
     });
   });
 
@@ -486,6 +587,7 @@ describe('a settings change from another device', () => {
       showWarnings: true,
       showQuestions: true,
       showComments: true,
+      highlightColours: 'calm',
     });
   });
 

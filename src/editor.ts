@@ -224,12 +224,21 @@ function same(a: readonly LineDiagnostic[], b: readonly LineDiagnostic[]): boole
  * with, so `main.ts` builds it again when they change; a note with no `skiss`
  * block in it gets no decorations and an empty gutter, which `styles.css`
  * gives no width.
+ *
+ * *Off* is the colouring left out rather than styled away: no decoration is
+ * computed and none is in the document, so a reader who turned the colours off
+ * pays nothing for them and a theme has nothing of ours to fight. The gutter
+ * and its diagnostics stay whatever the palette is — they are not colour, they
+ * are what the compiler found.
  */
 export function skissEditorExtension(settings: SkissSettings): Extension {
-  return [
-    highlighting,
+  const extension: Extension[] = [
     diagnosticsField,
     ViewPlugin.define((view) => new DiagnosticsWatcher(view, settings)),
     gutter({ class: 'skiss-gutter', markers: gutterMarkers }),
   ];
+  if (settings.highlightColours !== 'off') {
+    extension.unshift(highlighting);
+  }
+  return extension;
 }

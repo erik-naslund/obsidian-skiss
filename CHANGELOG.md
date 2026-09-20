@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Highlight colours**, a setting in Settings → Community plugins → Skiss:
+  *Calm*, *Vivid* or *Off*. *Vivid* is the palette of 0.3.x, for a block that
+  should read like code; *Off* leaves the block in one colour, and the gutter
+  markers stay whichever you choose. The palette changes on the blocks you
+  already have open, without a reload. README has a section on colours of your
+  own through a CSS snippet, with the `.cm-skiss-*` classes to override.
+
+### Changed
+
+- **A calmer palette by default.** Every word of a field line used to carry a
+  colour of its own, and `:`, `[]` and `|` changed colour between them; a
+  skiss block is almost all names and marks, so the same palette that works for
+  JavaScript read as noise here. The class names, the `@` systems, the
+  primitives and the enums carry a colour now; the field names and the types
+  read as text, and the marks between them take the colour of the text around
+  them. The `?` questions stay unmuted, as they are in the list below the
+  diagram. The old palette is *Vivid* under the new setting.
+
 ## [0.3.1] - 2026-09-20
 
 The PNG export works.
