@@ -46,3 +46,78 @@
   font-size: var(--font-ui-smaller);
   color: var(--text-faint);
 }
+
+/* Live Preview: the lines of a `skiss` fence, coloured by what they are.
+   Obsidian's own `--code-*` variables and nothing else, so a theme that
+   restyles code blocks restyles these along with them. Colour only: no weight,
+   no size and no font, so a line is the same shape whatever it says. */
+.cm-skiss-class {
+  color: var(--code-function);
+}
+
+.cm-skiss-field {
+  color: var(--code-property);
+}
+
+.cm-skiss-system {
+  color: var(--code-tag);
+}
+
+.cm-skiss-primitive {
+  color: var(--code-keyword);
+}
+
+/* A lowercase word that is no primitive compiles to `string` with a warning.
+   It is the note's own word, so it reads as one. */
+.cm-skiss-type {
+  color: var(--code-normal);
+}
+
+.cm-skiss-enum {
+  color: var(--code-value);
+}
+
+.cm-skiss-operator {
+  color: var(--code-operator);
+}
+
+/* The `*` that marks the identifier: the one mark that changes what a class is. */
+.cm-skiss-marker {
+  color: var(--code-important);
+}
+
+.cm-skiss-comment,
+.cm-skiss-description {
+  color: var(--code-comment);
+}
+
+/* A doubt is the point of the sketch, so it is the one trailer not muted,
+   as it is in the list below the diagram. */
+.cm-skiss-doubt {
+  color: var(--code-normal);
+}
+
+/* The diagnostics gutter. It is added to every editor, so it carries no
+   padding of its own: a note with no `skiss` block in it has nothing to draw
+   here and the column is not there at all. */
+.cm-gutter.skiss-gutter {
+  padding: 0;
+}
+
+/* A bar rather than a glyph: it is the same size in every theme, and the
+   message it stands for is on the tooltip. */
+.skiss-gutter-marker {
+  display: block;
+  width: var(--size-2-1);
+  height: 100%;
+  margin: 0 var(--size-2-1);
+  border-radius: var(--radius-s);
+}
+
+.skiss-gutter-error {
+  background-color: var(--text-error);
+}
+
+.skiss-gutter-warning {
+  background-color: var(--text-warning);
+}

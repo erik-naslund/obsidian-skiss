@@ -1,4 +1,6 @@
+import type { Extension } from '@codemirror/state';
 import { MarkdownRenderChild, MarkdownView, Plugin } from 'obsidian';
+import { skissEditorExtension } from './editor';
 import { exportNote, type Format, type Sink } from './export';
 import { render } from './render';
 import { DEFAULT_SETTINGS, readSettings, type SkissSettings, SkissSettingTab } from './settings';
@@ -69,6 +71,14 @@ const EXPORT_COMMANDS: readonly ExportCommand[] = [
 export default class SkissPlugin extends Plugin {
   settings: SkissSettings = { ...DEFAULT_SETTINGS };
 
+  /**
+   * The Live Preview extension, in the array Obsidian was handed. The
+   * extension carries the settings it was built with, so a settings change
+   * replaces what the array holds and asks the open editors to read it again;
+   * the array itself stays the one that was registered.
+   */
+  private readonly editorExtension: Extension[] = [];
+
   async onload(): Promise<void> {
     this.settings = readSettings(await this.loadData());
 
@@ -82,6 +92,9 @@ export default class SkissPlugin extends Plugin {
       // cannot place, and `render` falls back to the block's own numbering.
       return render(source, el, this.settings, ctx.getSectionInfo(el)?.lineStart);
     });
+
+    this.editorExtension.push(skissEditorExtension(this.settings));
+    this.registerEditorExtension(this.editorExtension);
 
     this.addSettingTab(new SkissSettingTab(this.app, this));
 
@@ -136,9 +149,13 @@ export default class SkissPlugin extends Plugin {
    * A note in Live Preview mounts its blocks through the editor rather than
    * through the preview, which `rerender` does not reach. `updateOptions` is
    * the call that makes every open editor reconfigure itself, and it is what
-   * carries a changed setting into Live Preview.
+   * carries a changed setting into Live Preview — both into the blocks it
+   * renders and into the gutter, which is why the extension is built again
+   * first, with the settings as they are now.
    */
   private rerenderOpenNotes(): void {
+    this.editorExtension.length = 0;
+    this.editorExtension.push(skissEditorExtension(this.settings));
     this.app.workspace.updateOptions();
     for (const leaf of this.app.workspace.getLeavesOfType(MARKDOWN_VIEW)) {
       if (leaf.view instanceof MarkdownView) {

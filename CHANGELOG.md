@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Syntax highlighting and gutter diagnostics in Live Preview.** The lines of
+  a `skiss` block are coloured as you type them — class and field names, types,
+  the `@` systems, the enums, the operators and the `#` and `?` trailers —
+  through Obsidian's own `--code-*` colours, so a theme that styles code styles
+  these. Beside them, a gutter marks every line the compiler has something to
+  say about, red for an error and yellow for a warning, with the diagnostic as
+  the tooltip; *Show warnings* hides the warnings there as it does below the
+  diagram, and errors are always marked. It is a CodeMirror 6 extension over
+  Obsidian's own CodeMirror, so the block stays as editable as any other code
+  block and nothing of CodeMirror is bundled. The list below the diagram in
+  Reading view is unchanged.
 - **The diagram exports as an image**, with four commands beside the four that
   were there: **Export SVG to new file**, **Export SVG to clipboard**,
   **Export PNG to new file** and **Export PNG to clipboard**. The whole note is
