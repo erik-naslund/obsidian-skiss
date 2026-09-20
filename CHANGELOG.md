@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **PNG export works again.** **Export PNG to new file** and **Export PNG to
+  clipboard** ended in *Tainted canvases may not be exported* for every diagram
+  with a label: Mermaid draws its labels as HTML inside a `<foreignObject>`, and
+  a canvas an SVG carrying one was drawn on is one the browser will not read
+  back. The export now asks Mermaid for plain SVG text labels, which also makes
+  the exported SVG open correctly in tools that do not render `foreignObject` —
+  Illustrator, Inkscape, Keynote. Only the export is drawn this way; the diagram
+  in the note is unchanged. Where a canvas cannot be read back for some other
+  reason, the notice now says the diagram could not be rasterised on this
+  device, with the browser's own wording after it.
+
 ## [0.3.0] - 2026-09-20
 
 The diagram as a picture, the block coloured as you type it with the

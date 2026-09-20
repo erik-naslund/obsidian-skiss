@@ -92,6 +92,9 @@ describe('render', () => {
 
     const [, text] = mermaidRender.mock.calls[0] ?? [];
     expect(text).toBe(compile(EXAMPLE, { target: 'mermaid' }).output);
+    // The export prepends an init directive to draw plain labels (#51); the
+    // block in the note is drawn as Mermaid is configured for the vault.
+    expect(text).not.toContain('%%{init:');
     expect(el.find('skiss-diagram')?.children.map((child) => child.tagName)).toEqual(['svg']);
   });
 
