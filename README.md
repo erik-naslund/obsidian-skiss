@@ -114,6 +114,7 @@ BRAT keeps it up to date with later releases. [docs/RELEASING.md](docs/RELEASING
 | | |
 |---|---|
 | [Skiss](https://github.com/erik-naslund/skiss) | The language itself: what a block can say. |
+| [Playground](https://erik-naslund.github.io/skiss-playground/) | The same language in a browser, nothing to install: try a sketch, share it as a link. |
 | [CHANGELOG.md](CHANGELOG.md) | What changed, per release. |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to build, test and send a change. |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | What comes next. |
