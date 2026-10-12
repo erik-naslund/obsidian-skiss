@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import type { TokenKind } from '@eriknaslund/skiss';
 import { describe, expect, it } from 'vitest';
 
 /**
@@ -7,7 +8,8 @@ import { describe, expect, it } from 'vitest';
  * hold it to is the shape the issue asked for: Obsidian's own `--code-*`
  * variables and nothing else, colour and nothing else, the vivid palette under
  * its one class, and nothing shouted with `!important` over a reader's own
- * snippet.
+ * snippet. Since the tokenizer moved to the package, this file also holds the
+ * one contract between the two: a kind the package can return has a rule here.
  */
 
 const STYLES = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
@@ -39,12 +41,41 @@ function classesOf(rule: Rule): string[] {
 const vivid = palette.filter((rule) => rule.selector.includes('skiss-vivid'));
 const calm = palette.filter((rule) => !rule.selector.includes('skiss-vivid'));
 
+/**
+ * Every kind the tokenizer of `@eriknaslund/skiss` can return. A `Record` keyed
+ * on the union rather than a list of strings, so a kind added to the package
+ * fails the typecheck here, and then the test below, until the stylesheet has a
+ * colour for it. The tokenizer itself is the package's to test; what is the
+ * plugin's own is that each kind it returns reaches a rule.
+ */
+const KINDS: Record<TokenKind, true> = {
+  class: true,
+  field: true,
+  system: true,
+  primitive: true,
+  type: true,
+  enum: true,
+  operator: true,
+  marker: true,
+  description: true,
+  doubt: true,
+  comment: true,
+};
+
 describe('the palettes in styles.css', () => {
   it('styles the lines of a block at all', () => {
     // A regex that stopped matching would otherwise make every test below pass
     // over an empty list.
     expect(calm.length).toBeGreaterThan(0);
     expect(vivid.length).toBeGreaterThan(0);
+  });
+
+  it('has a rule for every kind the tokenizer returns', () => {
+    // One palette or the other: the calm one deliberately leaves the operators
+    // the colour of the text around them, and the vivid one colours them.
+    const styled = new Set(palette.flatMap(classesOf));
+    const missing = Object.keys(KINDS).filter((kind) => !styled.has(`.cm-skiss-${kind}`));
+    expect(missing).toEqual([]);
   });
 
   it("gives a colour and nothing else, from Obsidian's own code variables", () => {

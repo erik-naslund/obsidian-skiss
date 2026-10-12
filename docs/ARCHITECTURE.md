@@ -41,6 +41,8 @@ obsidian-skiss/
 
 The plugin pins a published version of `skiss`. During development it may use a local link to an unpublished build, but a release always pins a published version. See [ADR 0004](adr/0004-depend-on-published-skiss.md).
 
+The tokenizer that the Live Preview colours are built from is the package's own `tokenizeLine`, as `parse`, `resolve` and `toMermaid` are: the plugin keeps no copy of it, so the colours of a block cannot drift from what the compiler reads. What is the plugin's own is the mapping from a token kind to a `.cm-skiss-<kind>` class and the colours in `styles.css`.
+
 ## Toolchain
 
 | Area | Choice |

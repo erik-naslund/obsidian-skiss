@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The tokenizer behind the Live Preview colours now comes from
+  `@eriknaslund/skiss` instead of a copy in the plugin, so the colours of a
+  block and what the compiler reads cannot drift apart. The colours themselves
+  are unchanged.
+
 ## [0.4.1] - 2026-09-21
 
 Clearer messages for a name outside ASCII.
