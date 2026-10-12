@@ -6,9 +6,8 @@
  * tested without an editor.
  */
 
-import { type Diagnostic, parse, resolve } from '@eriknaslund/skiss';
+import { type Diagnostic, parse, resolve, tokenizeLine } from '@eriknaslund/skiss';
 import { skissFences } from './fences';
-import { tokenizeLine } from './tokenize';
 
 /** The class prefix the issue asks for, and `styles.css` styles. */
 const CLASS_PREFIX = 'cm-skiss-';
