@@ -95,9 +95,12 @@ Obsidian installs from a GitHub release tagged with the bare version in
 - **Bumping the version** means updating `manifest.json`, `versions.json`
   and `package.json` together, in one PR.
 - **The release workflow does the release.** Nothing is uploaded by hand.
-- **Agents never publish.** Tagging a release and submitting to the
-  community list are the product owner's. If a task appears to require
-  it, stop and surface it.
+- **Workers never publish.** The tech lead tags a release after merging
+  its PR and confirms the run
+  ([skiss ADR-0011](https://github.com/erik-naslund/skiss/blob/main/docs/adr/0011-tech-lead-tags-releases.md));
+  holding a release means not merging the release PR. Submitting to the
+  community list, and anything else that needs an account login, is the
+  product owner's. If a task appears to require either, stop and surface it.
 
 ---
 
