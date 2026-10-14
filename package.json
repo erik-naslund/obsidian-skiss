@@ -1,7 +1,7 @@
 {
   "name": "obsidian-skiss",
   "private": true,
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "An Obsidian plugin that renders Skiss code blocks as diagrams and exports them to LinkML.",
   "main": "main.js",
   "type": "module",
@@ -27,6 +27,6 @@
     "vitest": "^5.0.3"
   },
   "dependencies": {
-    "@eriknaslund/skiss": "0.6.1"
+    "@eriknaslund/skiss": "0.7.0"
   }
 }

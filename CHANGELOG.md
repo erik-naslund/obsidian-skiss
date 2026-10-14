@@ -7,8 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-10-14
+
+Diagrams without multiplicity labels on `[]` relations.
+
 ### Changed
 
+- `@eriknaslund/skiss` 0.7.0: a `[]` relation draws without multiplicity
+  labels. `players: Player[]` is an arrow like any other; the box still shows
+  `Player[]`, so the plural is visible without the diagram claiming a
+  one-to-many the sketch never stated.
 - The tokenizer behind the Live Preview colours now comes from
   `@eriknaslund/skiss` instead of a copy in the plugin, so the colours of a
   block and what the compiler reads cannot drift apart. The colours themselves
@@ -244,7 +252,8 @@ shape.
 - **Installable with [BRAT](https://github.com/TfTHacker/obsidian42-brat)** from
   `erik-naslund/obsidian-skiss`. Not in the community plugin list yet.
 
-[Unreleased]: https://github.com/erik-naslund/obsidian-skiss/compare/0.4.1...HEAD
+[Unreleased]: https://github.com/erik-naslund/obsidian-skiss/compare/0.4.2...HEAD
+[0.4.2]: https://github.com/erik-naslund/obsidian-skiss/compare/0.4.1...0.4.2
 [0.4.1]: https://github.com/erik-naslund/obsidian-skiss/compare/0.4.0...0.4.1
 [0.4.0]: https://github.com/erik-naslund/obsidian-skiss/compare/0.3.1...0.4.0
 [0.3.1]: https://github.com/erik-naslund/obsidian-skiss/compare/0.3.0...0.3.1
