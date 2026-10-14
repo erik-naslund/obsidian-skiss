@@ -4,9 +4,10 @@ Obsidian installs a plugin from a GitHub release tagged with the **bare
 version** in `manifest.json` — `0.1.0`, not `v0.1.0` — carrying `main.js`,
 `manifest.json` and `styles.css`. This page is how that release gets made.
 
-Two halves, and they belong to different people. An agent prepares the release
-in a PR. **Only the product owner tags and pushes** ([AGENTS.md](../AGENTS.md)
-§6); agents never publish.
+Two halves. A release PR prepares the release; after it is merged, **the tech
+lead tags and pushes** ([AGENTS.md](../AGENTS.md) §6,
+[skiss ADR-0011](https://github.com/erik-naslund/skiss/blob/main/docs/adr/0011-tech-lead-tags-releases.md)).
+Workers never publish; holding a release means not merging the release PR.
 
 ## 1. Prepare the release (a PR)
 
@@ -39,13 +40,13 @@ One PR, on a branch named for the version (`release/0.1.0`).
 4. **`pnpm verify` green**, then open the PR against `main` and let CI pass.
    `main` is reached only through a PR.
 
-## 2. Tag it (the product owner)
+## 2. Tag it (the tech lead)
 
 Once the release PR is merged and CI on `main` is green:
 
 ```sh
 git fetch origin main
-git tag 0.1.0 main        # the bare version, no leading v
+git tag 0.1.0 FETCH_HEAD  # the bare version, no leading v
 git push origin 0.1.0
 ```
 
