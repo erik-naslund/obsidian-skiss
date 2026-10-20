@@ -1,7 +1,7 @@
 {
   "id": "skiss",
   "name": "Skiss",
-  "version": "0.4.2",
+  "version": "0.5.0",
   "minAppVersion": "1.13.1",
   "description": "Renders Skiss code blocks as diagrams and exports them to LinkML.",
   "author": "Erik Naslund",
