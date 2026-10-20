@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-20
+
+The glossary of a note, exported from its sketch.
+
 ### Added
 
 - Four commands that write what the note says about the words in it, as
@@ -271,7 +275,8 @@ shape.
 - **Installable with [BRAT](https://github.com/TfTHacker/obsidian42-brat)** from
   `erik-naslund/obsidian-skiss`. Not in the community plugin list yet.
 
-[Unreleased]: https://github.com/erik-naslund/obsidian-skiss/compare/0.4.2...HEAD
+[Unreleased]: https://github.com/erik-naslund/obsidian-skiss/compare/0.5.0...HEAD
+[0.5.0]: https://github.com/erik-naslund/obsidian-skiss/compare/0.4.2...0.5.0
 [0.4.2]: https://github.com/erik-naslund/obsidian-skiss/compare/0.4.1...0.4.2
 [0.4.1]: https://github.com/erik-naslund/obsidian-skiss/compare/0.4.0...0.4.1
 [0.4.0]: https://github.com/erik-naslund/obsidian-skiss/compare/0.3.1...0.4.0
