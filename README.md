@@ -35,7 +35,8 @@ In Reading view, and in Live Preview when the cursor is outside the block, that 
 - **Marks the diagnostics in the gutter** beside the lines they are about, in that same view: red for an error, yellow for a warning, and the compiler's own wording when you hover one. *Show warnings* turns the yellow ones off; errors are always marked.
 - **Shows diagnostics** below the diagram instead of failing: an unknown type, a class you referenced but have not written yet, a line it could not read. Each one names the line of the note it is about.
 - **Lists the open questions and the comments** of the block below the diagram: the `?` questions under "Open questions" and the `#` descriptions under "Comments", each saying what carries it.
-- **Exports the note**, with eight commands. Four write a file next to the note — **Skiss: Export LinkML to new file**, **Export Mermaid to new file**, **Export SVG to new file** and **Export PNG to new file** — and four put the same thing on the clipboard: **Export LinkML to clipboard**, **Export Mermaid to clipboard**, **Export SVG to clipboard** and **Export PNG to clipboard**. Every `skiss` block in the note is exported together, as one schema and one diagram; the SVG and the PNG are that diagram, drawn by the same Mermaid the block is rendered with.
+- **Exports the note**, with twelve commands. Six write a file next to the note — **Skiss: Export LinkML to new file**, **Export Mermaid to new file**, **Export SVG to new file**, **Export PNG to new file**, **Export glossary to new file** and **Export terms to new file** — and six put the same thing on the clipboard: **Export LinkML to clipboard**, **Export Mermaid to clipboard**, **Export SVG to clipboard**, **Export PNG to clipboard**, **Export glossary to clipboard** and **Export terms to clipboard**. Every `skiss` block in the note is exported together, as one schema and one diagram; the SVG and the PNG are that diagram, drawn by the same Mermaid the block is rendered with.
+- **Writes the glossary of the note** as Markdown, from the same blocks: **Export glossary to new file** writes one section per class with its fields in a table and the `#` descriptions as the definitions, **Export terms to new file** writes the terms alone as a `| Term | Definition |` table, and both are headed with the note's own name. The `?` doubts are left out of both: a doubt is never documentation.
 - **Four settings**, in Settings → Community plugins → Skiss. Three are on by default: *Show warnings*, *Show open questions* and *Show comments*. They decide what is listed below the diagram when you want a quiet note to present from, and *Show warnings* decides the gutter markers in Live Preview with it. The fourth, *Highlight colours*, chooses the palette the block is written in — *Calm*, *Vivid* or *Off*. Errors are not among any of them: a block that fails to compile must never look fine.
 
 Nothing else. The language, the parser and the LinkML generator live in the [`skiss`](https://github.com/erik-naslund/skiss) package. This plugin is the thinnest possible layer over it.
@@ -46,7 +47,7 @@ Nothing else. The language, the parser and the LinkML generator live in the [`sk
 
 ### Where an export is written
 
-The file commands always write to the note's own sibling: `<note>.linkml.yaml`, `<note>.mmd`, `<note>.svg` or `<note>.png`, in the note's folder. Running the command again refreshes that same file, so the export follows the note. **If you hand-edit an exported file, the next export overwrites your edit** — the notice says *Created* for a file that was not there and *Updated* for one that was. No other file is ever touched.
+The file commands always write to the note's own sibling: `<note>.linkml.yaml`, `<note>.mmd`, `<note>.svg`, `<note>.png`, `<note> glossary.md` or `<note> terms.md`, in the note's folder. Running the command again refreshes that same file, so the export follows the note. **If you hand-edit an exported file, the next export overwrites your edit** — the notice says *Created* for a file that was not there and *Updated* for one that was. No other file is ever touched.
 
 **An exported image is not put into the note.** Showing the picture in the note is yours to write, as an embed of the file the export wrote: `![[<note>.png]]`. The export never edits the note it was run from.
 
@@ -93,9 +94,9 @@ Those rules hold for *Calm* and for *Vivid* alike. To restyle only the vivid pal
 
 Obsidian's developer policies ask a plugin to say what it reaches for beyond the note you are writing. This is all of it:
 
-- **The clipboard is written to, never read.** The four *to clipboard* commands put what they exported on the system clipboard when you run one of them — the text, or the image itself for **Export PNG to clipboard** — and nothing else does. The plugin never reads the clipboard.
+- **The clipboard is written to, never read.** The six *to clipboard* commands put what they exported on the system clipboard when you run one of them — the text, or the image itself for **Export PNG to clipboard** — and nothing else does. The plugin never reads the clipboard.
 - **No network requests.** Nothing is fetched and nothing is sent: the language, the diagrams and the export all run on your machine, and the plugin has no account, no telemetry and no update channel of its own.
-- **Files are written next to the note you export from, and nowhere else.** The four *to new file* commands write `<note>.linkml.yaml`, `<note>.mmd`, `<note>.svg` or `<note>.png` in the note's own folder, and no export inserts anything into the note itself. Nothing outside the vault is read or written, apart from the plugin's own settings, which Obsidian keeps with the plugin.
+- **Files are written next to the note you export from, and nowhere else.** The six *to new file* commands write `<note>.linkml.yaml`, `<note>.mmd`, `<note>.svg`, `<note>.png`, `<note> glossary.md` or `<note> terms.md` in the note's own folder, and no export inserts anything into the note itself. Nothing outside the vault is read or written, apart from the plugin's own settings, which Obsidian keeps with the plugin.
 
 ## Installing
 

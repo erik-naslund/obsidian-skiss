@@ -256,10 +256,14 @@ const EXPORT_IDS = [
   'export-svg-clipboard',
   'export-png-file',
   'export-png-clipboard',
+  'export-glossary-file',
+  'export-glossary-clipboard',
+  'export-terms-file',
+  'export-terms-clipboard',
 ];
 
 describe('the export commands', () => {
-  it('registers the eight ids and names the palette shows', async () => {
+  it('registers the twelve ids and names the palette shows', async () => {
     await load();
 
     // The palette prefixes the plugin name and id itself; carrying either here
@@ -273,6 +277,10 @@ describe('the export commands', () => {
       ['export-svg-clipboard', 'Export SVG to clipboard'],
       ['export-png-file', 'Export PNG to new file'],
       ['export-png-clipboard', 'Export PNG to clipboard'],
+      ['export-glossary-file', 'Export glossary to new file'],
+      ['export-glossary-clipboard', 'Export glossary to clipboard'],
+      ['export-terms-file', 'Export terms to new file'],
+      ['export-terms-clipboard', 'Export terms to clipboard'],
     ]);
   });
 
@@ -320,6 +328,8 @@ describe('the export commands', () => {
   it.each([
     ['export-linkml-file', 'Note.linkml.yaml'],
     ['export-mermaid-file', 'Note.mmd'],
+    ['export-glossary-file', 'Note glossary.md'],
+    ['export-terms-file', 'Note terms.md'],
   ])('writes the active note next to itself when %s is invoked', async (id, path) => {
     const { vault } = await load();
 
@@ -347,6 +357,10 @@ describe('the export commands', () => {
   it.each([
     ['export-linkml-clipboard', 'name: note'],
     ['export-mermaid-clipboard', 'classDiagram'],
+    // The glossary is headed with the note's own name, the terms page is a
+    // two-column table; both say which command wrote what is on the clipboard.
+    ['export-glossary-clipboard', '# Note'],
+    ['export-terms-clipboard', '| Term | Definition |'],
   ])('copies the active note when %s is invoked', async (id, text) => {
     const { vault } = await load();
 

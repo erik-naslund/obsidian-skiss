@@ -5,6 +5,7 @@ import {
   concatenateBlocks,
   exportNote,
   type Format,
+  glossaryNameFor,
   noteLineOf,
   outputPathFor,
   type Sink,
@@ -265,6 +266,31 @@ describe('the schema name and the file name', () => {
   });
 
   it.each([
+    [
+      'Sketches/My Notes.md',
+      'My Notes',
+      'Sketches/My Notes glossary.md',
+      'Sketches/My Notes terms.md',
+    ],
+    ['Note.md', 'Note', 'Note glossary.md', 'Note terms.md'],
+    [
+      'A folder/Star Wars v2.md',
+      'Star Wars v2',
+      'A folder/Star Wars v2 glossary.md',
+      'A folder/Star Wars v2 terms.md',
+    ],
+  ])(
+    'derives the glossary heading and the two Markdown pages from %s',
+    (path, name, glossaryPath, termsPath) => {
+      // The heading is the note's own title, not the LinkML name: the page is
+      // read by a person, not by a schema tool.
+      expect(glossaryNameFor(path)).toBe(name);
+      expect(outputPathFor(path, 'glossary')).toBe(glossaryPath);
+      expect(outputPathFor(path, 'terms')).toBe(termsPath);
+    },
+  );
+
+  it.each([
     ['a doubled separator', 'Sketches//Note.md', 'Sketches/Note.linkml.yaml'],
     ['a leading separator', '/Sketches/Note.md', 'Sketches/Note.linkml.yaml'],
     // A non-breaking space is what a note title pasted from elsewhere carries.
@@ -510,12 +536,124 @@ describe('the clipboard sink', () => {
   });
 });
 
+/**
+ * A sketch shaped like the ones the glossary is for: a `#` block at the top
+ * describing the whole thing, a description that continues on an indented line,
+ * and a `?` doubt, which is never documentation and so never on either page.
+ */
+const DESCRIBED = `# The archive of a galaxy far away.
+# Everything the holocron knows about people and places.
+
+Character @Catalog
+  # A person in the archive.
+  #   Anyone with a name, alive or not.
+  ? Do droids count as characters?
+  id*
+  name
+  homeworld: Planet
+
+Planet @Catalog
+  # A world the archive knows.
+  id*
+  name
+`;
+
+/** What `skiss glossary` and `skiss glossary --classes` write for `DESCRIBED`. */
+function glossaryOf(name: string, classes: boolean): string {
+  return compile(sourceOf([DESCRIBED.trimEnd()]), { target: 'glossary', name, classes }).output;
+}
+
+describe('the glossary and the terms page', () => {
+  it('writes the glossary next to the note, headed with the note name', async () => {
+    const vault = new StubVault();
+
+    await runExport(vault, 'Sketches/My Notes.md', noteWith(DESCRIBED), 'glossary', 'file');
+
+    const expected = glossaryOf('My Notes', false);
+    expect(vault.created).toEqual(['Sketches/My Notes glossary.md']);
+    expect(vault.contentOf('Sketches/My Notes glossary.md')).toBe(expected);
+    expect(expected).toContain('# My Notes');
+    // One section and one field table per class, which is what `--classes` drops.
+    expect(expected).toContain('## Character');
+    expect(expected).toContain('| Field | Type | Description |');
+    expect(notices[0]).toBe('Created Sketches/My Notes glossary.md');
+  });
+
+  it('writes the terms alone as the terms page', async () => {
+    const vault = new StubVault();
+
+    await runExport(vault, 'Sketches/My Notes.md', noteWith(DESCRIBED), 'terms', 'file');
+
+    const expected = glossaryOf('My Notes', true);
+    expect(vault.created).toEqual(['Sketches/My Notes terms.md']);
+    expect(vault.contentOf('Sketches/My Notes terms.md')).toBe(expected);
+    expect(expected).toContain('| Term | Definition |');
+    expect(expected).not.toContain('| Field | Type | Description |');
+  });
+
+  it('carries the top comment block and a continuation line into the definition', async () => {
+    const vault = new StubVault();
+
+    await runExport(vault, 'My Notes.md', noteWith(DESCRIBED), 'glossary', 'file');
+
+    const written = vault.contentOf('My Notes glossary.md');
+    expect(written).toContain('The archive of a galaxy far away.');
+    expect(written).toContain('A person in the archive. Anyone with a name, alive or not.');
+  });
+
+  it.each([
+    ['glossary', 'My Notes glossary.md'],
+    ['terms', 'My Notes terms.md'],
+  ] as const)(
+    'leaves the doubts off the %s page, as the diagram leaves them off',
+    async (format, path) => {
+      const vault = new StubVault();
+
+      await runExport(vault, 'My Notes.md', noteWith(DESCRIBED), format, 'file');
+
+      expect(vault.contentOf(path)).not.toContain('Do droids count as characters?');
+    },
+  );
+
+  it.each([
+    ['glossary', 'Note glossary.md'],
+    ['terms', 'Note terms.md'],
+  ] as const)('refreshes the %s page that is already there', async (format, path) => {
+    const vault = new StubVault();
+    vault.add(path, 'stale\n');
+
+    await runExport(vault, 'Note.md', noteWith(DESCRIBED), format, 'file');
+
+    expect(vault.created).toEqual([]);
+    expect(vault.processed).toEqual([path]);
+    expect(vault.contentOf(path)).not.toContain('stale');
+    expect(notices[0]).toBe(`Updated ${path}`);
+  });
+
+  it.each([
+    ['glossary', false, 'Copied Glossary to clipboard'],
+    ['terms', true, 'Copied Terms to clipboard'],
+  ] as const)('copies the %s page and says which it copied', async (format, classes, notice) => {
+    const vault = new StubVault();
+
+    await runExport(vault, 'Sketches/My Notes.md', noteWith(DESCRIBED), format, 'clipboard');
+
+    expect(copied()).toBe(glossaryOf('My Notes', classes));
+    expect(notices).toEqual([notice]);
+    expect(vault.created).toEqual([]);
+  });
+});
+
 describe('what both sinks and both formats do', () => {
   const combinations = [
     ['linkml', 'file'],
     ['linkml', 'clipboard'],
     ['mermaid', 'file'],
     ['mermaid', 'clipboard'],
+    ['glossary', 'file'],
+    ['glossary', 'clipboard'],
+    ['terms', 'file'],
+    ['terms', 'clipboard'],
   ] as const;
 
   it.each(combinations)(

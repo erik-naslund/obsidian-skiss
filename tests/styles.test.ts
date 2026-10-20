@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import type { TokenKind } from '@eriknaslund/skiss';
 import { describe, expect, it } from 'vitest';
+import { highlightSpans } from '../src/annotate';
 
 /**
  * The half of the palettes that is not TypeScript. `main.ts` decides which of
@@ -112,5 +113,18 @@ describe('the palettes in styles.css', () => {
 
   it("shouts nothing down: a snippet of the reader's own wins over all of it", () => {
     expect(STYLES).not.toContain('!important');
+  });
+
+  it('colours an indented description line the package tokenizes as one', () => {
+    // 0.8.0 lets a description continue on its own indented `#` line. The
+    // tokenizer is the package's, so the editor extension needed no change;
+    // what this holds is that the class it asks for is one the palette styles.
+    const note =
+      '```skiss\nCharacter\n  # A person in the archive.\n  #   Anyone with a name.\n```\n';
+
+    // Line 4 of the note is the continuation line, the indented one.
+    const continuation = highlightSpans(note).filter((span) => span.line === 4);
+    expect(continuation.map((span) => span.className)).toContain('cm-skiss-description');
+    expect(new Set(palette.flatMap(classesOf))).toContain('.cm-skiss-description');
   });
 });
