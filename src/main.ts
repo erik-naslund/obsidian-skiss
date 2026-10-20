@@ -72,6 +72,30 @@ const EXPORT_COMMANDS: readonly ExportCommand[] = [
     format: 'png',
     sink: 'clipboard',
   },
+  {
+    id: 'export-glossary-file',
+    name: 'Export glossary to new file',
+    format: 'glossary',
+    sink: 'file',
+  },
+  {
+    id: 'export-glossary-clipboard',
+    name: 'Export glossary to clipboard',
+    format: 'glossary',
+    sink: 'clipboard',
+  },
+  {
+    id: 'export-terms-file',
+    name: 'Export terms to new file',
+    format: 'terms',
+    sink: 'file',
+  },
+  {
+    id: 'export-terms-clipboard',
+    name: 'Export terms to clipboard',
+    format: 'terms',
+    sink: 'clipboard',
+  },
 ];
 
 export default class SkissPlugin extends Plugin {

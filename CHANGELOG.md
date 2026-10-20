@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Four commands that write what the note says about the words in it, as
+  Markdown: **Export glossary to new file** and **Export glossary to
+  clipboard** write one section per class with its fields in a table and the
+  `#` descriptions as the definitions; **Export terms to new file** and
+  **Export terms to clipboard** write the terms alone, as a
+  `| Term | Definition |` table. The page is headed with the note's own name
+  and a file lands beside the note as `<note> glossary.md` or
+  `<note> terms.md`. The `?` doubts are on neither page, as they are on no
+  exported diagram.
+
+### Changed
+
+- `@eriknaslund/skiss` 0.8.0: a `#` description too long for its line
+  continues on indented `#` lines under it, and the `#` block at the top of a
+  block describes the whole sketch. Both are coloured in Live Preview, from
+  the package's own tokenizer.
+
 ## [0.4.2] - 2026-10-14
 
 Diagrams without multiplicity labels on `[]` relations.

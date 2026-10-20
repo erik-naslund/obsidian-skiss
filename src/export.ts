@@ -7,8 +7,10 @@ import { diagramPng, diagramSvg } from './image';
 /**
  * What the blocks of a note are compiled to. `svg` and `png` are the Mermaid
  * diagram drawn and then rasterised, so both carry whatever `mermaid` carries.
+ * `glossary` and `terms` are the package's one glossary target, the second
+ * with its `classes` option: the terms alone, as `skiss glossary --classes`.
  */
-export type Format = 'linkml' | 'mermaid' | 'svg' | 'png';
+export type Format = 'linkml' | 'mermaid' | 'svg' | 'png' | 'glossary' | 'terms';
 
 /** Where the compiled text goes. */
 export type Sink = 'file' | 'clipboard';
@@ -26,6 +28,10 @@ const FORMATS: Record<Format, FormatSpec> = {
   mermaid: { label: 'Mermaid', suffix: '.mmd' },
   svg: { label: 'SVG', suffix: '.svg' },
   png: { label: 'PNG', suffix: '.png' },
+  // Markdown pages rather than a sidecar format, so the suffix is a word of the
+  // file name: `My Notes glossary.md` is a note of the vault like any other.
+  glossary: { label: 'Glossary', suffix: ' glossary.md' },
+  terms: { label: 'Terms', suffix: ' terms.md' },
 };
 
 const NO_BLOCKS = 'No skiss blocks in this note';
@@ -91,8 +97,18 @@ export function schemaNameFor(notePath: string): string {
 }
 
 /**
- * `<note>.linkml.yaml`, `<note>.mmd`, `<note>.svg` or `<note>.png`, in the
- * note's own folder. The path is built here rather than taken from the user, and
+ * The glossary's `#` heading. The package writes it as it is given, so the
+ * note's basename reaches the page the way the note is titled — unlike
+ * `schemaNameFor`, whose name `compile` normalises into a LinkML one.
+ */
+export function glossaryNameFor(notePath: string): string {
+  return basenameOf(notePath);
+}
+
+/**
+ * `<note>.linkml.yaml`, `<note>.mmd`, `<note>.svg`, `<note>.png`,
+ * `<note> glossary.md` or `<note> terms.md`, in the note's own folder. The path
+ * is built here rather than taken from the user, and
  * the guidelines ask for `normalizePath` on it: that is what makes a folder or a
  * note name carrying a non-breaking space or a decomposed accent find the file
  * the vault holds.
@@ -111,11 +127,23 @@ export function outputPathFor(notePath: string, format: Format): string {
  * same diagram whether it is asked for as text or as a picture.
  */
 export function compileNote(source: string, format: Format, notePath: string): CompileResult {
+  if (format === 'linkml') {
+    return compile(source, { target: 'linkml', schemaName: schemaNameFor(notePath) });
+  }
+  if (format === 'glossary' || format === 'terms') {
+    // `classes` is the CLI's `--classes`: the terms alone, one row each.
+    // `notes` is left off for the reason it is left off below: the plugin draws
+    // no `?` doubt as a note anywhere, so neither page carries one and both
+    // read as `skiss glossary` does.
+    return compile(source, {
+      target: 'glossary',
+      name: glossaryNameFor(notePath),
+      classes: format === 'terms',
+    });
+  }
   // `notes` stays off, so `?` doubts are no more drawn on an exported diagram
   // than on the one in the block.
-  return format === 'linkml'
-    ? compile(source, { target: 'linkml', schemaName: schemaNameFor(notePath) })
-    : compile(source, { target: 'mermaid' });
+  return compile(source, { target: 'mermaid' });
 }
 
 /**
